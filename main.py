@@ -68,7 +68,8 @@ import os
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext
 
-# استخراج نام آهنگ و هنرمند از لینک اسپاتیفای (بدون نیاز به API)
+TOKEN = '7588405517:AAHFt6wAfRb-2eiBy20w2k2v4nPSSFFW55s'
+
 def extract_song_info(spotify_url):
     pattern = re.compile(r"https://open\.spotify\.com/track/([^?]+)")
     match = pattern.search(spotify_url)
@@ -78,7 +79,6 @@ def extract_song_info(spotify_url):
     else:
         raise ValueError("لینک اسپاتیفای معتبر نیست!")
 
-# دانلود آهنگ از یوتیوب با استفاده از کوکی‌ها
 def download_from_youtube(query, output_path="downloads/"):
     if not os.path.exists(output_path):
         os.makedirs(output_path)
@@ -91,7 +91,7 @@ def download_from_youtube(query, output_path="downloads/"):
             'preferredcodec': 'mp3',
             'preferredquality': '192',
         }],
-        'cookiefile': 'cookies.txt',  # فایل کوکی‌های استخراج‌شده
+        'cookiefile': 'cookies.txt',
     }
 
     with yt_dlp.YoutubeDL(options) as ydl:
@@ -130,36 +130,29 @@ async def help_command(update: Update, context: CallbackContext) -> None:
 async def download(update: Update, context: CallbackContext) -> None:
     spotify_url = update.message.text.strip()
 
-    await update.message.reply_text("در حال پردازش لینک اسپاتیفای...")
+    await update.message.reply_text("💠 در حال پردازش لینک...")
     
     # دانلود آهنگ از اسپاتیفای و یوتیوب
     file_path = download_spotify_track(spotify_url)
     
     if "خطا" in file_path or "یافت نشد" in file_path:
-        await update.message.reply_text(f"خطا: {file_path}")
+        await update.message.reply_text(f"⚠ مشکلی پیش امده: {file_path}")
     else:
-        await update.message.reply_text("دانلود کامل شد! در حال ارسال فایل...")
+        await update.message.reply_text("✅ در حال ارسال فایل...")
         try:
             with open(file_path, 'rb') as audio_file:
                 await update.message.reply_audio(audio=audio_file)
-            os.remove(file_path)  # حذف فایل بعد از ارسال
+            os.remove(file_path)
         except Exception as e:
-            await update.message.reply_text(f"خطا در ارسال فایل: {e}")
+            await update.message.reply_text(f"⚠ خطا در ارسال فایل: {e}")
 
-# اجرای ربات تلگرام
 def main():
-    # توکن ربات خود را وارد کنید
-    TOKEN = '7909360615:AAESgbGRtLj5_9RnW-qJTA4Rxnyi-gb_DgQ'
-
-    # ایجاد Application جدید
     application = Application.builder().token(TOKEN).build()
 
-    # اضافه کردن هندلرها
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, download))
 
-    # شروع ربات
     application.run_polling()
 
 if __name__ == '__main__':
