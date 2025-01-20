@@ -60,24 +60,29 @@
 #BOT TELEGRAM
 
 import sys
-sys.stdout.reconfigure(encoding='utf-8') 
+sys.stdout.reconfigure(encoding='utf-8')
 
 import yt_dlp
 import re
 import os
+import spotipy
+from spotipy.oauth2 import SpotifyClientCredentials
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext
 
+# اطلاعات API اسپاتیفای
+SPOTIPY_CLIENT_ID = "5fe7a0ec665943c593038ab1c88f7fb6"
+SPOTIPY_CLIENT_SECRET = "f1683bc1aeb847d1bbc511aeccbc4ea5"
+
 TOKEN = '7588405517:AAHFt6wAfRb-2eiBy20w2k2v4nPSSFFW55s'
 
-def extract_song_info(spotify_url):
-    pattern = re.compile(r"https://open\.spotify\.com/track/([^?]+)")
-    match = pattern.search(spotify_url)
-    if match:
-        track_id = match.group(1)
-        return f"Spotify track {track_id}"
-    else:
-        raise ValueError("لینک اسپاتیفای معتبر نیست!")
+def get_spotify_track_info(spotify_url):
+    sp = spotipy.Spotify(auth_manager=SpotifyClientCredentials(client_id=SPOTIPY_CLIENT_ID, client_secret=SPOTIPY_CLIENT_SECRET))
+    track_id = spotify_url.split("/")[-1].split("?")[0]
+    track_info = sp.track(track_id)
+    track_name = track_info["name"]
+    artist_name = track_info["artists"][0]["name"]
+    return f"{track_name} {artist_name}"
 
 def download_from_youtube(query, output_path="downloads/"):
     if not os.path.exists(output_path):
@@ -91,32 +96,36 @@ def download_from_youtube(query, output_path="downloads/"):
             'preferredcodec': 'mp3',
             'preferredquality': '192',
         }],
-        'cookiefile': 'cookies.txt',
     }
 
     with yt_dlp.YoutubeDL(options) as ydl:
-        search_results = ydl.extract_info(f"ytsearch:{query}", download=False)
+        search_results = ydl.extract_info(f"ytsearch5:{query}", download=False)
+        
         if 'entries' in search_results and len(search_results['entries']) > 0:
-            info = search_results['entries'][0]
-            ydl.download([info['webpage_url']])
-            return f"{output_path}{info['title']}.mp3"
-        else:
-            raise Exception("آهنگ مورد نظر یافت نشد!")
+            best_match = None
+            for entry in search_results['entries']:
+                title = entry['title'].lower()
+                if all(word in title for word in query.lower().split()):
+                    best_match = entry
+                    break
+            
+            if best_match:
+                ydl.download([best_match['webpage_url']])
+                return f"{output_path}{best_match['title']}.mp3"
+        
+        raise Exception("آهنگ مورد نظر یافت نشد!")
 
-# دریافت لینک اسپاتیفای و دانلود آهنگ
 def download_spotify_track(spotify_url):
     try:
-        query = extract_song_info(spotify_url)
+        query = get_spotify_track_info(spotify_url)
         file_path = download_from_youtube(query)
         return file_path
     except Exception as e:
         return str(e)
 
-# فرمان start برای ربات تلگرام
 async def start(update: Update, context: CallbackContext) -> None:
     await update.message.reply_text('سلام! لطفاً لینک آهنگ اسپاتیفای را ارسال کنید.\nبرای دریافت راهنمایی، از دستور /help استفاده کنید.')
 
-# فرمان help برای ربات تلگرام
 async def help_command(update: Update, context: CallbackContext) -> None:
     help_text = (
         "ربات دانلود آهنگ اسپاتیفای\n\n"
@@ -126,13 +135,10 @@ async def help_command(update: Update, context: CallbackContext) -> None:
     )
     await update.message.reply_text(help_text)
 
-# فرمان دانلود برای ربات تلگرام
 async def download(update: Update, context: CallbackContext) -> None:
     spotify_url = update.message.text.strip()
-
     await update.message.reply_text("💠 در حال پردازش لینک...")
     
-    # دانلود آهنگ از اسپاتیفای و یوتیوب
     file_path = download_spotify_track(spotify_url)
     
     if "خطا" in file_path or "یافت نشد" in file_path:
