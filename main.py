@@ -1,74 +1,12 @@
-# import yt_dlp
-# import re
-# import os
-# import sys
-# sys.stdout.reconfigure(encoding='utf-8') 
-
-# # استخراج نام آهنگ و هنرمند از لینک اسپاتیفای (بدون نیاز به API)
-# def extract_song_info(spotify_url):
-#     # تلاش برای استخراج شناسه آهنگ از URL
-#     pattern = re.compile(r"https://open\.spotify\.com/track/([^?]+)")
-#     match = pattern.search(spotify_url)
-#     if match:
-#         track_id = match.group(1)
-#         return f"Spotify track {track_id}"
-#     else:
-#         raise ValueError("لینک اسپاتیفای معتبر نیست!")
-
-# # دانلود آهنگ از یوتیوب با استفاده از کوکی‌ها
-# def download_from_youtube(query, output_path="downloads/"):
-#     if not os.path.exists(output_path):
-#         os.makedirs(output_path)
-
-#     options = {
-#         'format': 'bestaudio/best',
-#         'outtmpl': f'{output_path}%(title)s.%(ext)s',
-#         'postprocessors': [{
-#             'key': 'FFmpegExtractAudio',
-#             'preferredcodec': 'mp3',
-#             'preferredquality': '192',
-#         }],
-#         'cookiefile': 'cookies.txt',  # فایل کوکی‌های استخراج‌شده
-#     }
-
-#     with yt_dlp.YoutubeDL(options) as ydl:
-#         search_results = ydl.extract_info(f"ytsearch:{query}", download=False)
-#         if 'entries' in search_results and len(search_results['entries']) > 0:
-#             info = search_results['entries'][0]
-#             ydl.download([info['webpage_url']])
-#             return f"{output_path}{info['title']}.mp3"
-
-# # دریافت لینک اسپاتیفای و دانلود آهنگ
-# def download_spotify_track(spotify_url):
-#     try:
-#         print("در حال پردازش لینک اسپاتیفای...")
-#         query = extract_song_info(spotify_url)
-#         print(f"جستجو برای آهنگ: {query}")
-        
-#         print("در حال دانلود از یوتیوب...")
-#         file_path = download_from_youtube(query)
-#         print(f"دانلود کامل شد! فایل ذخیره‌شده: {file_path}")
-#     except Exception as e:
-#         print(f"خطا: {e}")
-
-# # اجرای برنامه
-# if __name__ == "__main__":
-#     spotify_url = input("لینک آهنگ اسپاتیفای را وارد کنید: ")
-#     download_spotify_track(spotify_url)
-
-
-#BOT TELEGRAM
-
 import sys
 sys.stdout.reconfigure(encoding='utf-8')
 
 import yt_dlp
-import re
 import os
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
-from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext, CallbackQueryHandler
 
 # اطلاعات API اسپاتیفای
 SPOTIPY_CLIENT_ID = "5fe7a0ec665943c593038ab1c88f7fb6"
@@ -76,13 +14,19 @@ SPOTIPY_CLIENT_SECRET = "f1683bc1aeb847d1bbc511aeccbc4ea5"
 
 TOKEN = '7588405517:AAHFt6wAfRb-2eiBy20w2k2v4nPSSFFW55s'
 
+# دیکشنری برای ذخیره اطلاعات موقت کاربران
+user_data = {}
+
 def get_spotify_track_info(spotify_url):
     sp = spotipy.Spotify(auth_manager=SpotifyClientCredentials(client_id=SPOTIPY_CLIENT_ID, client_secret=SPOTIPY_CLIENT_SECRET))
     track_id = spotify_url.split("/")[-1].split("?")[0]
     track_info = sp.track(track_id)
     track_name = track_info["name"]
     artist_name = track_info["artists"][0]["name"]
-    return f"{track_name} {artist_name}"
+    album_name = track_info["album"]["name"]
+    release_date = track_info["album"]["release_date"]
+    cover_image = track_info["album"]["images"][0]["url"]
+    return track_name, artist_name, album_name, release_date, cover_image
 
 def download_from_youtube(query, output_path="downloads/"):
     if not os.path.exists(output_path):
@@ -113,20 +57,12 @@ def download_from_youtube(query, output_path="downloads/"):
                 ydl.download([best_match['webpage_url']])
                 return f"{output_path}{best_match['title']}.mp3"
         
-        raise Exception("آهنگ مورد نظر یافت نشد!")
-
-def download_spotify_track(spotify_url):
-    try:
-        query = get_spotify_track_info(spotify_url)
-        file_path = download_from_youtube(query)
-        return file_path
-    except Exception as e:
-        return str(e)
+        raise Exception("⚠ آهنگ مورد نظر یافت نشد :(")
 
 async def start(update: Update, context: CallbackContext) -> None:
     await update.message.reply_text('سلام! لطفاً لینک آهنگ اسپاتیفای را ارسال کنید.\nبرای دریافت راهنمایی، از دستور /help استفاده کنید.')
 
-async def help_command(update: Update, context: CallbackContext) -> None:
+async def help(update: Update, context: CallbackContext) -> None:
     help_text = (
         "ربات دانلود آهنگ اسپاتیفای\n\n"
         "1. لینک آهنگ اسپاتیفای را ارسال کنید تا آن را از یوتیوب دانلود کنم.\n"
@@ -135,29 +71,74 @@ async def help_command(update: Update, context: CallbackContext) -> None:
     )
     await update.message.reply_text(help_text)
 
-async def download(update: Update, context: CallbackContext) -> None:
+async def handle_spotify_link(update: Update, context: CallbackContext) -> None:
     spotify_url = update.message.text.strip()
     await update.message.reply_text("💠 در حال پردازش لینک...")
     
-    file_path = download_spotify_track(spotify_url)
+    try:
+        # دریافت اطلاعات آهنگ از اسپاتیفای
+        track_name, artist_name, album_name, release_date, cover_image = get_spotify_track_info(spotify_url)
+        query = f"{track_name} {artist_name}"
+        
+        # ذخیره اطلاعات موقت برای کاربر
+        user_data[update.message.from_user.id] = {
+            "query": query,
+            "spotify_url": spotify_url
+        }
+        
+        # ارسال اطلاعات آهنگ و تصویر به کاربر
+        caption = (
+            f"🎵 آهنگ: {track_name}\n"
+            f"🎤 هنرمند: {artist_name}\n"
+            f"💿 آلبوم: {album_name}\n"
+            f"📅 تاریخ انتشار: {release_date}\n\n"
+            "آیا می‌خواهید این آهنگ را دانلود کنید؟"
+        )
+        keyboard = [
+            [InlineKeyboardButton("✅ بله", callback_data="confirm")],
+            [InlineKeyboardButton("❌ خیر", callback_data="cancel")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await update.message.reply_photo(photo=cover_image, caption=caption, reply_markup=reply_markup)
     
-    if "خطا" in file_path or "یافت نشد" in file_path:
-        await update.message.reply_text(f"⚠ مشکلی پیش امده: {file_path}")
-    else:
-        await update.message.reply_text("✅ در حال ارسال فایل...")
+    except Exception as e:
+        await update.message.reply_text(f"⚠ مشکلی پیش آمده:\n{e}")
+
+async def handle_confirmation(update: Update, context: CallbackContext) -> None:
+    query = update.callback_query
+    user_id = query.from_user.id
+    await query.answer()
+    
+    if query.data == "confirm":
+        await query.edit_message_text("💠 در حال دانلود آهنگ...")
+        
         try:
+            # دریافت اطلاعات موقت کاربر
+            query_text = user_data[user_id]["query"]
+            file_path = download_from_youtube(query_text)
+            
+            await query.edit_message_text("✅ در حال ارسال فایل...")
             with open(file_path, 'rb') as audio_file:
-                await update.message.reply_audio(audio=audio_file)
+                await context.bot.send_audio(chat_id=user_id, audio=audio_file)
             os.remove(file_path)
+        
         except Exception as e:
-            await update.message.reply_text(f"⚠ خطا در ارسال فایل: {e}")
+            await query.edit_message_text(f"⚠ مشکلی پیش آمده:\n{e}")
+    
+    else:
+        await query.edit_message_text("❌ فرآیند دانلود لغو شد")
+    
+    if user_id in user_data:
+        del user_data[user_id]
 
 def main():
     application = Application.builder().token(TOKEN).build()
 
     application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("help", help_command))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, download))
+    application.add_handler(CommandHandler("help", help))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_spotify_link))
+    application.add_handler(CallbackQueryHandler(handle_confirmation))
 
     application.run_polling()
 
