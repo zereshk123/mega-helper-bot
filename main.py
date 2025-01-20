@@ -83,7 +83,8 @@ async def handle_spotify_link(update: Update, context: CallbackContext) -> None:
         # ذخیره اطلاعات موقت برای کاربر
         user_data[update.message.from_user.id] = {
             "query": query,
-            "spotify_url": spotify_url
+            "spotify_url": spotify_url,
+            "message_id": update.message.message_id  # ذخیره شناسه پیام
         }
         
         # ارسال اطلاعات آهنگ و تصویر به کاربر
@@ -110,27 +111,37 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
     user_id = query.from_user.id
     await query.answer()
     
-    if query.data == "confirm":
-        await query.edit_message_text("💠 در حال دانلود آهنگ...")
+    try:
+        # حذف پیام قبلی که حاوی اطلاعات آهنگ است
+        if user_id in user_data and "message_id" in user_data[user_id]:
+            message_id = user_data[user_id]["message_id"]
+            await context.bot.delete_message(chat_id=user_id, message_id=message_id)
         
-        try:
-            # دریافت اطلاعات موقت کاربر
-            query_text = user_data[user_id]["query"]
-            file_path = download_from_youtube(query_text)
+        if query.data == "confirm":
+            await context.bot.send_message(chat_id=user_id, text="💠 در حال دانلود آهنگ...")
             
-            await query.edit_message_text("✅ در حال ارسال فایل...")
-            with open(file_path, 'rb') as audio_file:
-                await context.bot.send_audio(chat_id=user_id, audio=audio_file)
-            os.remove(file_path)
+            try:
+                # دریافت اطلاعات موقت کاربر
+                query_text = user_data[user_id]["query"]
+                file_path = download_from_youtube(query_text)
+                
+                await context.bot.send_message(chat_id=user_id, text="✅ در حال ارسال فایل...")
+                with open(file_path, 'rb') as audio_file:
+                    await context.bot.send_audio(chat_id=user_id, audio=audio_file)
+                os.remove(file_path)
+            
+            except Exception as e:
+                await context.bot.send_message(chat_id=user_id, text=f"⚠ مشکلی پیش آمده:\n{e}")
         
-        except Exception as e:
-            await query.edit_message_text(f"⚠ مشکلی پیش آمده:\n{e}")
+        else:
+            await context.bot.send_message(chat_id=user_id, text="❌ فرآیند دانلود لغو شد")
     
-    else:
-        await query.edit_message_text("❌ فرآیند دانلود لغو شد")
+    except Exception as e:
+        await context.bot.send_message(chat_id=user_id, text=f"⚠ خطایی رخ داد:\n{e}")
     
-    if user_id in user_data:
-        del user_data[user_id]
+    finally:
+        if user_id in user_data:
+            del user_data[user_id]
 
 def main():
     application = Application.builder().token(TOKEN).build()
