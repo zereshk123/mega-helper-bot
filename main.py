@@ -1,9 +1,9 @@
 import sys
 sys.stdout.reconfigure(encoding='utf-8')
 import re
-import json
-import yt_dlp 
+import yt_dlp
 import os
+import json
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton
@@ -16,10 +16,9 @@ with open('config.json', 'r', encoding='utf-8') as config_file:
     config = json.load(config_file)
 TOKEN = config["api1"]["token"]
 
-SPOTIPY_CLIENT_ID = "5fe7a0ec665943c593038ab1c88f7fb6"
-SPOTIPY_CLIENT_SECRET = "f1683bc1aeb847d1bbc511aeccbc4ea5"
+SPOTIPY_CLIENT_ID = "337ee8e9d48e4061a9ca454800fc014c"
+SPOTIPY_CLIENT_SECRET = "f3fd7524baef74b448869fa79e03330a7"
 user_data = {}
-
 
 # --- DataBase ---
 def auth_db():
@@ -38,6 +37,7 @@ def auth_db():
         conn.commit()
 
     print("[BOT] database checked✅")
+
 
 def get_spotify_track_info(spotify_url):
     sp = spotipy.Spotify(auth_manager=SpotifyClientCredentials(client_id=SPOTIPY_CLIENT_ID, client_secret=SPOTIPY_CLIENT_SECRET))
@@ -140,7 +140,7 @@ async def echo(update: Update, context: CallbackContext) -> None:
         track_name, artist_name, album_name, release_date, cover_image = get_spotify_track_info(spotify_url)
         query = f"{track_name} {artist_name}"
         
-        context.user_data[user_id] = {
+        user_data[update.message.from_user.id] = {
             "query": query,
             "spotify_url": spotify_url,
             "message_id": update.message.message_id
@@ -168,73 +168,6 @@ async def echo(update: Update, context: CallbackContext) -> None:
             parse_mode="HTML"
         )
     
-    elif text == "💰 افزایش سکه 💰":
-        keyboard = [
-            [KeyboardButton("🔙 بازگشت 🔙")]
-        ]
-        inline_markup = ReplyKeyboardMarkup(keyboard)
-
-        await context.bot.send_message(
-            chat_id=user_id,
-            text="💠این بخش در مرحله ساخت است...",
-            reply_to_message_id=update.effective_message.id,
-            reply_markup=inline_markup
-        )
-
-    elif text == "👨‍💻راهنما و پشتیبانی 👨‍💻":
-        keyboard = [
-            [KeyboardButton("🔙 بازگشت 🔙")]
-        ]
-        inline_markup = ReplyKeyboardMarkup(keyboard)
-
-        await context.bot.send_message(
-            chat_id=user_id,
-            text="💠این بخش در مرحله ساخت است...",
-            reply_to_message_id=update.effective_message.id,
-            reply_markup=inline_markup
-        )
-
-    elif text == "📊 حساب کاربری 📊":
-        keyboard = [
-            [KeyboardButton("🔙 بازگشت 🔙")]
-        ]
-        inline_markup = ReplyKeyboardMarkup(keyboard)
-
-        with sqlite3.connect("data.db") as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT * FROM users WHERE user_id = ?", (user_id,))
-            user_data = cursor.fetchone()
-            
-        if user_data:
-            if user_data[4] == 1:
-                user_type = "ادمین"
-            else:
-                user_type = "کاربر عادی"
-
-            user_name = user_data[2]
-            username = user_data[3]
-            coins = user_data[6]
-
-            inline_keyboard = [[InlineKeyboardButton(f"⭐ نوع حساب:  {user_type}", callback_data="no_action")]]
-            inline_markup = InlineKeyboardMarkup(inline_keyboard)
-
-            await context.bot.send_message(
-                chat_id=user_id,
-                text=f"🔆 اطلاعات حساب کاربری شما:\n\n💠 نام شما: {user_name}\n💠 نام کاربری شما: @{username}\n💠 شناسه عددی شما: {user_id}\n💰 تعداد سکه های شما: {coins}",
-                reply_to_message_id=update.effective_message.id,
-                reply_markup=inline_markup
-            )
-
-        else:
-            print(f"\nUser ID {user_id} was not found!\n")
-
-            await context.bot.send_message(
-                chat_id=user_id,
-                text="⚠مشکلی پیش آمده...\nلطفا دوباره ربات را استارت کنید ⬇",
-                reply_to_message_id=update.effective_message.id,
-                reply_markup=inline_markup
-            ) 
-
     else:
         keyboard = [
             [KeyboardButton("🔙 بازگشت 🔙")]
@@ -282,16 +215,15 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
     elif query.data == "cancel":
         await context.bot.send_message(chat_id=user_id, text="❌فرآیند دانلود لغو شد")
 
-def run_telegram_bot():
+def main():
     print("[BOT] initializing...")
     application = Application.builder().token(TOKEN).build()
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
     application.add_handler(CallbackQueryHandler(handle_confirmation))
-    print("[BOT] running bot...\n\n")
+    print("[BOT] running bot...")
     application.run_polling()
 
 if __name__ == '__main__':
-    auth_db()
-    run_telegram_bot()
+    main()
