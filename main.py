@@ -15,7 +15,7 @@ import sqlite3
 with open('config.json', 'r', encoding='utf-8') as config_file:
     config = json.load(config_file)
 
-TOKEN = config["api2"]["token"]
+TOKEN = config["api1"]["token"]
 SPOTIPY_CLIENT_ID = config["client_spotify"]["client_id"]
 SPOTIPY_CLIENT_SECRET = config["client_spotify"]["client_secret"]
 
@@ -140,6 +140,7 @@ async def echo(update: Update, context: CallbackContext) -> None:
         return
     
     elif re.match(pattern, text) is not None:
+        global user_data
         spotify_url = update.message.text.strip()
         await update.message.reply_text("💠 در حال پردازش لینک...")
         
