@@ -14,10 +14,9 @@ import sqlite3
 # select token
 with open('config.json', 'r', encoding='utf-8') as config_file:
     config = json.load(config_file)
-TOKEN = config["api1"]["token"]
-
-SPOTIPY_CLIENT_ID = "337ee8e9d48e4061a9ca454800fc014c"
-SPOTIPY_CLIENT_SECRET = "3fd7524baef74b448869fa79e03330a7"
+TOKEN = config["api2"]["token"]
+SPOTIPY_CLIENT_ID = config["client_spotify"]["client_id"]
+SPOTIPY_CLIENT_SECRET = config["client_spotify"]["client_secret"]
 user_data = {}
 
 # --- DataBase ---
