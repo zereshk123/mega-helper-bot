@@ -1,19 +1,43 @@
 import sys
 sys.stdout.reconfigure(encoding='utf-8')
 import re
-import yt_dlp
+import json
+import yt_dlp 
 import os
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext, CallbackQueryHandler
+import sqlite3
 
+
+# select token
+with open('config.json', 'r', encoding='utf-8') as config_file:
+    config = json.load(config_file)
+TOKEN = config["api2"]["token"]
 
 SPOTIPY_CLIENT_ID = "5fe7a0ec665943c593038ab1c88f7fb6"
 SPOTIPY_CLIENT_SECRET = "f1683bc1aeb847d1bbc511aeccbc4ea5"
-TOKEN = '7588405517:AAHFt6wAfRb-2eiBy20w2k2v4nPSSFFW55s'
 user_data = {}
 
+
+# --- DataBase ---
+def auth_db():
+    with sqlite3.connect('data.db') as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS users(
+            id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+            user_id	TEXT NOT NULL,
+            name TEXT NOT NULL,
+            username TEXT NOT NULL,
+            admin_type INTEGER NOT NULL,
+            last_dice_time TEXT,
+            coins INTEGER NOT NULL
+        )''')
+        conn.commit()
+
+    print("[BOT] database checked✅")
 
 def get_spotify_track_info(spotify_url):
     sp = spotipy.Spotify(auth_manager=SpotifyClientCredentials(client_id=SPOTIPY_CLIENT_ID, client_secret=SPOTIPY_CLIENT_SECRET))
@@ -62,6 +86,20 @@ async def start(update: Update, context: CallbackContext) -> None:
     user_id = str(update.effective_user.id)
     user_name = update.effective_user.full_name
     username = update.effective_user.username
+
+    # check user
+    with sqlite3.connect("data.db") as conn:
+        cursor  = conn.cursor()
+        cursor.execute("SELECT user_id FROM users WHERE user_id = ?", (user_id,))
+        user_status = cursor.fetchone()
+
+        if user_status:
+            None
+        else:
+            cursor.execute("INSERT INTO users (user_id, name, username, admin_type, coins) VALUES (?, ?, ?, ?, ?)", (user_id, user_name, username, 0, 2))
+            conn.commit()
+            print(f"\nnew user add to database...\nuser id => {user_id}\nname => {user_name}\nusername => {username}\n\n")
+        conn.commit()
 
     keyboard = [
         [KeyboardButton("📊 حساب کاربری 📊")],
@@ -130,6 +168,74 @@ async def echo(update: Update, context: CallbackContext) -> None:
             parse_mode="HTML"
         )
     
+    elif text == "💰 افزایش سکه 💰":
+        keyboard = [
+            [KeyboardButton("🔙 بازگشت 🔙")]
+        ]
+        inline_markup = ReplyKeyboardMarkup(keyboard)
+
+        await context.bot.send_message(
+            chat_id=user_id,
+            text="💠این بخش در مرحله ساخت است...",
+            reply_to_message_id=update.effective_message.id,
+            reply_markup=inline_markup
+        )
+
+    elif text == "👨‍💻راهنما و پشتیبانی 👨‍💻":
+        keyboard = [
+            [KeyboardButton("🔙 بازگشت 🔙")]
+        ]
+        inline_markup = ReplyKeyboardMarkup(keyboard)
+
+        await context.bot.send_message(
+            chat_id=user_id,
+            text="💠این بخش در مرحله ساخت است...",
+            reply_to_message_id=update.effective_message.id,
+            reply_markup=inline_markup
+        )
+
+    elif text == "📊 حساب کاربری 📊":
+        keyboard = [
+            [KeyboardButton("🔙 بازگشت 🔙")]
+        ]
+        inline_markup = ReplyKeyboardMarkup(keyboard)
+
+        with sqlite3.connect("data.db") as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM users WHERE user_id = ?", (user_id,))
+            user_data = cursor.fetchone()
+            
+        if user_data:
+            if user_data[4] == 1:
+                user_type = "ادمین"
+            else:
+                user_type = "کاربر عادی"
+
+            user_name = user_data[2]
+            username = user_data[3]
+            coins = user_data[6]
+
+            inline_keyboard = [[InlineKeyboardButton(f"⭐ نوع حساب:  {user_type}", callback_data="no_action")]]
+            inline_markup = InlineKeyboardMarkup(inline_keyboard)
+
+            await context.bot.send_message(
+                chat_id=user_id,
+                text=f"🔆 اطلاعات حساب کاربری شما:\n\n💠 نام شما: {user_name}\n💠 نام کاربری شما: @{username}\n💠 شناسه عددی شما: {user_id}\n💰 تعداد سکه های شما: {coins}",
+                reply_to_message_id=update.effective_message.id,
+                reply_markup=inline_markup
+            )
+
+        else:
+            print(f"\nUser ID {user_id} was not found!\n")
+
+            context.bot.send_message(
+                chat_id=user_id,
+                text="⚠مشکلی پیش آمده...\nلطفا دوباره ربات را استارت کنید ⬇",
+                reply_to_message_id=update.effective_message.id,
+                reply_markup=inline_markup
+            ) 
+
+
     else:
         keyboard = [
             [KeyboardButton("🔙 بازگشت 🔙")]
@@ -177,15 +283,16 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
     elif query.data == "cancel":
         await context.bot.send_message(chat_id=user_id, text="❌فرآیند دانلود لغو شد")
 
-def main():
+def run_telegram_bot():
     print("[BOT] initializing...")
     application = Application.builder().token(TOKEN).build()
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
     application.add_handler(CallbackQueryHandler(handle_confirmation))
-    print("[BOT] running bot...")
+    print("[BOT] running bot...\n\n")
     application.run_polling()
 
 if __name__ == '__main__':
-    main()
+    auth_db()
+    run_telegram_bot()
