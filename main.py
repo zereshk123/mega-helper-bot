@@ -63,24 +63,30 @@ def download_from_youtube(query, output_path="downloads/"):
             'preferredcodec': 'mp3',
             'preferredquality': '192',
         }],
+        'cookies': 'cookies.txt',
+        'quiet': False
     }
 
     with yt_dlp.YoutubeDL(options) as ydl:
-        search_results = ydl.extract_info(f"ytsearch5:{query}", download=False)
-        
-        if 'entries' in search_results and len(search_results['entries']) > 0:
-            best_match = None
-            for entry in search_results['entries']:
-                title = entry['title'].lower()
-                if all(word in title for word in query.lower().split()):
-                    best_match = entry
-                    break
+        try:
+            search_results = ydl.extract_info(f"ytsearch5:{query}", download=False)
             
-            if best_match:
-                ydl.download([best_match['webpage_url']])
-                return f"{output_path}{best_match['title']}.mp3"
+            if 'entries' in search_results and len(search_results['entries']) > 0:
+                best_match = None
+                for entry in search_results['entries']:
+                    title = entry['title'].lower()
+                    if all(word in title for word in query.lower().split()):
+                        best_match = entry
+                        break
+                
+                if best_match:
+                    ydl.download([best_match['webpage_url']])
+                    return f"{output_path}{best_match['title']}.mp3"
+            else:
+                raise Exception("⚠متاسفیم... آهنگ مورد نظر شما یافت نشد :(")
         
-        raise Exception("⚠متاسفیم... آهنگ مورد نظر شما یافت نشد :(")
+        except Exception as e:
+            raise Exception(f"خطا در دانلود: {str(e)}")
 
 async def start(update: Update, context: CallbackContext) -> None:
     user_id = str(update.effective_user.id)
