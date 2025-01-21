@@ -38,7 +38,6 @@ def auth_db():
 
     print("[BOT] database checked✅")
 
-
 def get_spotify_track_info(spotify_url):
     sp = spotipy.Spotify(auth_manager=SpotifyClientCredentials(client_id=SPOTIPY_CLIENT_ID, client_secret=SPOTIPY_CLIENT_SECRET))
     track_id = spotify_url.split("/")[-1].split("?")[0]
@@ -106,7 +105,6 @@ async def start(update: Update, context: CallbackContext) -> None:
             conn.commit()
             print(f"\nnew user add to database...\nuser id => {user_id}\nname => {user_name}\nusername => {username}\n\n")
         conn.commit()
-        conn.close()
 
     keyboard = [
         [KeyboardButton("📊 حساب کاربری 📊")],
@@ -175,6 +173,73 @@ async def echo(update: Update, context: CallbackContext) -> None:
             parse_mode="HTML"
         )
     
+    elif text == "📊 حساب کاربری 📊":
+        keyboard = [
+            [KeyboardButton("🔙 بازگشت 🔙")]
+        ]
+        inline_markup = ReplyKeyboardMarkup(keyboard)
+
+        with sqlite3.connect("data.db") as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM users WHERE user_id = ?", (user_id,))
+            user_data = cursor.fetchone()
+            
+        if user_data:
+            if user_data[4] == 1:
+                user_type = "ادمین"
+            else:
+                user_type = "کاربر عادی"
+
+            user_name = user_data[2]
+            username = user_data[3]
+            coins = user_data[6]
+
+            inline_keyboard = [[InlineKeyboardButton(f"⭐ نوع حساب:  {user_type}", callback_data="no_action")]]
+            inline_markup = InlineKeyboardMarkup(inline_keyboard)
+
+            await context.bot.send_message(
+                chat_id=user_id,
+                text=f"🔆 اطلاعات حساب کاربری شما:\n\n💠 نام شما: {user_name}\n💠 نام کاربری شما: @{username}\n💠 شناسه عددی شما: {user_id}\n💰 تعداد سکه های شما: {coins}",
+                reply_to_message_id=update.effective_message.id,
+                reply_markup=inline_markup
+            )
+
+        else:
+            print(f"\nUser ID {user_id} was not found!\n")
+
+            await context.bot.send_message(
+                chat_id=user_id,
+                text="⚠مشکلی پیش آمده...\nلطفا دوباره ربات را استارت کنید ⬇",
+                reply_to_message_id=update.effective_message.id,
+                reply_markup=inline_markup
+            )     
+
+    elif text == "💰 افزایش سکه 💰":
+        keyboard = [
+            [KeyboardButton("🔙 بازگشت 🔙")]
+        ]
+        inline_markup = ReplyKeyboardMarkup(keyboard)
+
+        await context.bot.send_message(
+            chat_id=user_id,
+            text="💠این بخش در مرحله ساخت است...",
+            reply_to_message_id=update.effective_message.id,
+            reply_markup=inline_markup
+        )
+
+    elif text == "👨‍💻راهنما و پشتیبانی 👨‍💻":
+        keyboard = [
+            [KeyboardButton("🔙 بازگشت 🔙")]
+        ]
+        inline_markup = ReplyKeyboardMarkup(keyboard)
+
+        await context.bot.send_message(
+            chat_id=user_id,
+            text="💠این بخش در مرحله ساخت است...",
+            reply_to_message_id=update.effective_message.id,
+            reply_markup=inline_markup
+        )
+
     else:
         keyboard = [
             [KeyboardButton("🔙 بازگشت 🔙")]
