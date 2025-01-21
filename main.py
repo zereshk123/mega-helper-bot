@@ -14,7 +14,7 @@ import sqlite3
 # select token
 with open('config.json', 'r', encoding='utf-8') as config_file:
     config = json.load(config_file)
-TOKEN = config["api2"]["token"]
+TOKEN = config["api1"]["token"]
 
 SPOTIPY_CLIENT_ID = "5fe7a0ec665943c593038ab1c88f7fb6"
 SPOTIPY_CLIENT_SECRET = "f1683bc1aeb847d1bbc511aeccbc4ea5"
