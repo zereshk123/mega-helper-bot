@@ -17,7 +17,7 @@ with open('config.json', 'r', encoding='utf-8') as config_file:
 TOKEN = config["api1"]["token"]
 
 SPOTIPY_CLIENT_ID = "337ee8e9d48e4061a9ca454800fc014c"
-SPOTIPY_CLIENT_SECRET = "f3fd7524baef74b448869fa79e03330a7"
+SPOTIPY_CLIENT_SECRET = "3fd7524baef74b448869fa79e03330a7"
 user_data = {}
 
 # --- DataBase ---
@@ -100,6 +100,7 @@ async def start(update: Update, context: CallbackContext) -> None:
             conn.commit()
             print(f"\nnew user add to database...\nuser id => {user_id}\nname => {user_name}\nusername => {username}\n\n")
         conn.commit()
+        conn.close()
 
     keyboard = [
         [KeyboardButton("📊 حساب کاربری 📊")],
