@@ -11,14 +11,13 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 import sqlite3
 
 
-# add config.json
+# select token
 with open('config.json', 'r', encoding='utf-8') as config_file:
     config = json.load(config_file)
-
 TOKEN = config["api1"]["token"]
-SPOTIPY_CLIENT_ID = config["client_spotify"]["client_id"]
-SPOTIPY_CLIENT_SECRET = config["client_spotify"]["client_secret"]
 
+SPOTIPY_CLIENT_ID = "337ee8e9d48e4061a9ca454800fc014c"
+SPOTIPY_CLIENT_SECRET = "3fd7524baef74b448869fa79e03330a7"
 user_data = {}
 
 # --- DataBase ---
@@ -147,7 +146,7 @@ async def echo(update: Update, context: CallbackContext) -> None:
         track_name, artist_name, album_name, release_date, cover_image = get_spotify_track_info(spotify_url)
         query = f"{track_name} {artist_name}"
         
-        context.user_data[user_id] = {
+        user_data[update.message.from_user.id] = {
             "query": query,
             "spotify_url": spotify_url,
             "message_id": update.message.message_id

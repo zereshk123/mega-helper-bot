@@ -20,3 +20,4 @@ def json_to_netscape(json_file, netscape_file):
 
 # استفاده از این تابع
 json_to_netscape("cookies.json", "cookies.txt")
+
