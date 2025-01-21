@@ -140,7 +140,7 @@ async def echo(update: Update, context: CallbackContext) -> None:
         track_name, artist_name, album_name, release_date, cover_image = get_spotify_track_info(spotify_url)
         query = f"{track_name} {artist_name}"
         
-        user_data[update.message.from_user.id] = {
+        context.user_data[user_id] = {
             "query": query,
             "spotify_url": spotify_url,
             "message_id": update.message.message_id
@@ -228,13 +228,12 @@ async def echo(update: Update, context: CallbackContext) -> None:
         else:
             print(f"\nUser ID {user_id} was not found!\n")
 
-            context.bot.send_message(
+            await context.bot.send_message(
                 chat_id=user_id,
                 text="⚠مشکلی پیش آمده...\nلطفا دوباره ربات را استارت کنید ⬇",
                 reply_to_message_id=update.effective_message.id,
                 reply_markup=inline_markup
             ) 
-
 
     else:
         keyboard = [
