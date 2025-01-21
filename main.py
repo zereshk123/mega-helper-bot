@@ -96,7 +96,7 @@ async def start(update: Update, context: CallbackContext) -> None:
         if user_status:
             None
         else:
-            cursor.execute("INSERT INTO users (user_id, name, username, admin_type, coins) VALUES (?, ?, ?, ?, ?)", (user_id, user_name, username, 0, 2))
+            cursor.execute("INSERT INTO users (user_id, name, username, admin_type, coins) VALUES (?, ?, ?, ?, ?)", (user_id, user_name, username, 0, 10))
             conn.commit()
             print(f"\nnew user add to database...\nuser id => {user_id}\nname => {user_name}\nusername => {username}\n\n")
         conn.commit()
