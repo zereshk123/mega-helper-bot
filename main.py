@@ -11,7 +11,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 
 SPOTIPY_CLIENT_ID = "5fe7a0ec665943c593038ab1c88f7fb6"
 SPOTIPY_CLIENT_SECRET = "f1683bc1aeb847d1bbc511aeccbc4ea5"
-TOKEN = '7909360615:AAESgbGRtLj5_9RnW-qJTA4Rxnyi-gb_DgQ'
+TOKEN = '7588405517:AAHFt6wAfRb-2eiBy20w2k2v4nPSSFFW55s'
 user_data = {}
 
 
