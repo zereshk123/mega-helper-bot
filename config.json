@@ -14,5 +14,12 @@
     "client_secret": "3fd7524baef74b448869fa79e03330a7"
   },
 
+  "insta_loader_opt":{
+    "download_pictures": true,
+    "download_videos": true,
+    "download_comments": false,
+    "save_metadata": false
+  },
+
   "new_user_coin": 6
 }

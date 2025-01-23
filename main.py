@@ -1,6 +1,9 @@
 import sys
 sys.stdout.reconfigure(encoding='utf-8')
 
+import instaloader
+import glob
+import shutil
 import asyncio
 import re
 import yt_dlp
@@ -11,6 +14,7 @@ from spotipy.oauth2 import SpotifyClientCredentials
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext, CallbackQueryHandler
 import sqlite3
+from telegram.error import TimedOut
 from time import sleep
 from datetime import datetime, timedelta
 
@@ -24,6 +28,13 @@ with open('config.json', 'r', encoding='utf-8') as config_file:
 TOKEN = config["api1"]["token"]
 SPOTIPY_CLIENT_ID = config["client_spotify"]["client_id"]
 SPOTIPY_CLIENT_SECRET = config["client_spotify"]["client_secret"]
+
+loader = instaloader.Instaloader(
+    download_pictures=config["insta_loader_opt"]["download_pictures"],
+    download_videos=config["insta_loader_opt"]["download_videos"],
+    download_comments=config["insta_loader_opt"]["download_comments"],
+    save_metadata=config["insta_loader_opt"]["save_metadata"]
+)
 
 user_support_progress = {}
 
@@ -289,7 +300,7 @@ async def echo(update: Update, context: CallbackContext) -> None:
 
     elif text == "📥 دانـلودر 📥":
         keyboard = [
-            [KeyboardButton("🟢 اسپاتیفای دانلودر 🟢")],
+            [KeyboardButton("🟢 اسپاتیفای 🟢"), KeyboardButton("🔴 پست اینستاگرام 🔴")],
             [KeyboardButton("🔙 بازگشت 🔙")]
         ]
         inline_markup = ReplyKeyboardMarkup(keyboard)
@@ -302,9 +313,9 @@ async def echo(update: Update, context: CallbackContext) -> None:
         )
         return
 
-    elif text == "🟢 اسپاتیفای دانلودر 🟢":
+    elif text == "🟢 اسپاتیفای 🟢":
         keyboard = [
-            [KeyboardButton("🔙 بازگشت 🔙")]
+            [KeyboardButton("❌ لغو ❌")]
         ]
         inline_markup = ReplyKeyboardMarkup(keyboard)
 
@@ -319,6 +330,22 @@ async def echo(update: Update, context: CallbackContext) -> None:
             cursor = conn.cursor()
             cursor.execute('INSERT INTO download_spotify_progress (user_id, step) VALUES (?, ?) ON CONFLICT(user_id) DO UPDATE SET step=?', (user_id, 1, 1))
             conn.commit()
+        return
+
+    elif text == "🔴 پست اینستاگرام 🔴":
+        keyboard = [
+            [KeyboardButton("❌ لغو ❌")]
+        ]
+        inline_markup = ReplyKeyboardMarkup(keyboard)
+
+        await context.bot.send_message(
+            chat_id=user_id,
+            text="💠لینک پست را بفرستید:",
+            reply_to_message_id=update.effective_message.id,
+            reply_markup=inline_markup
+        )    
+
+        context.user_data["insta_post_step"] = 1
         return
 
     elif text == "❌ لغو ❌":
@@ -339,6 +366,8 @@ async def echo(update: Update, context: CallbackContext) -> None:
             cursor.execute(f"SELECT step FROM download_spotify_progress WHERE user_id = {user_id}")
             download_spotify_result = cursor.fetchone()
         
+        insta_post_step = context.user_data.get("insta_post_step")
+
         if user_id in user_support_progress:
             inline_keyboard = [
                 [InlineKeyboardButton("🔙 برگشتن", callback_data="back")]
@@ -422,6 +451,36 @@ async def echo(update: Update, context: CallbackContext) -> None:
                     cursor.execute("DELETE FROM download_spotify_progress WHERE user_id = ?", (user_id,))
                     conn.commit()
                 return
+        
+        elif insta_post_step:
+            post_url = update.message.text
+
+            try:
+                shortcode = post_url.split("/")[-2]
+
+                context.user_data["insta_post_url"] = shortcode
+
+                keyboard = [
+                    [InlineKeyboardButton("✅ بله", callback_data="confirm_download_insta_post")],
+                    [InlineKeyboardButton("❌ خیر", callback_data="cancel_download_insta_post")]
+                ]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+                
+                await update.message.reply_text(
+                    photo=cover_image,
+                    caption="💠در صورت دانلود این پست 2 سکه از حساب شما کم میشود! آیا می‌خواهید این پست را دانلود کنید؟",
+                    reply_markup=reply_markup,
+                )
+                return
+
+            except Exception as e:
+                await update.message.reply_text(f"خطا: {e}")
+                
+                if "insta_post_url" in context.user_data:
+                    del context.user_data["insta_post_url"]
+                if "insta_post_step" in context.user_data:
+                    del context.user_data["insta_post_step"]
+        
         else:
             keyboard = [
                 [KeyboardButton("🔙 بازگشت 🔙")]
@@ -459,8 +518,7 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
                 cursor.execute(f"SELECT * FROM download_spotify_progress WHERE user_id = ?", (user_id,))
                 download_spotify_progress = cursor.fetchone()
                 download_spotify_progress = list(download_spotify_progress)
-                print(f"\n\nline 464: user_id= {download_spotify_progress[0]}\nstep= {download_spotify_progress[1]}\nqury= {download_spotify_progress[2]}\n url= {download_spotify_progress[3]}\n\n")
-            
+
             try:
                 query_text = download_spotify_progress[2]
                 file_path = download_from_youtube(query_text)
@@ -476,11 +534,20 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
                     #get the number of coins
                     cursor.execute('SELECT coins FROM users WHERE user_id = ?', (user_id,))
                     old_coins = cursor.fetchone()
-                    new_coins = old_coins[0] - 2
 
-                    #set the new number of coins
-                    cursor.execute('UPDATE users SET coins = ? WHERE user_id = ?', (new_coins ,user_id,))
-                    conn.commit()
+                    if old_coins[0]-2 >= 0:
+                        new_coins = old_coins[0] - 2
+                        #set the new number of coins
+                        cursor.execute('UPDATE users SET coins = ? WHERE user_id = ?', (new_coins ,user_id,))
+                        conn.commit()
+                    else:
+                        await update.callback_query.edit_message_text(
+                            "⚠ سکه های شما کافی نمیباشد!\nشما میتوانید از طریق بخش افزایش سکه تعداد سکه های خود را افزایش دهید...",
+                            reply_markup=inline_markup
+                        )
+                        cursor.execute(f"DELETE FROM download_spotify_progress WHERE user_id = ?", (user_id,))
+                        conn.commit()
+                        return
             
                 with open(file_path, 'rb') as audio_file:
                     await context.bot.send_audio(
@@ -560,6 +627,140 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
                 reply_markup=inline_markup,
                 reply_to_message_id=query.message.message_id
             )            
+
+    elif query.data == "confirm_download_insta_post":
+        post_url = context.user_data.get("insta_post_url")
+        post_folder = None
+
+        keyboard = [
+            [KeyboardButton("🔙 بازگشت 🔙")]
+        ]
+        inline_markup = ReplyKeyboardMarkup(keyboard)
+
+        try:
+            post = instaloader.Post.from_shortcode(loader.context, post_url)
+
+            loader.download_post(post, target=post_url)
+
+            post_folder = os.path.join(os.getcwd(), post_url)
+
+            if not os.path.exists(post_folder):
+                await update.callback_query.edit_message_text(
+                    "⚠خطا: فایل ها دانلود نشدند. لطفا دوباره مراحل را طی کنید...",
+                    reply_markup=inline_markup
+                )
+
+                if "insta_post_url" in context.user_data:
+                    del context.user_data["insta_post_url"]
+                if "insta_post_step" in context.user_data:
+                    del context.user_data["insta_post_step"]
+                return
+
+            downloaded_files = glob.glob(os.path.join(post_folder, "*"))
+            if not downloaded_files:
+                await update.callback_query.edit_message_text(
+                    "⚠خطا: فایل ها دانلود نشدند. لطفا دوباره مراحل را طی کنید...",
+                    reply_markup=inline_markup
+                )
+                if "insta_post_url" in context.user_data:
+                    del context.user_data["insta_post_url"]
+                if "insta_post_step" in context.user_data:
+                    del context.user_data["insta_post_step"]
+                return
+
+            is_video = post.is_video
+
+            # delete the coin in account 
+            with sqlite3.connect("data.db") as conn:
+                cursor = conn.cursor()
+                #get the number of coins
+                cursor.execute('SELECT coins FROM users WHERE user_id = ?', (user_id,))
+                old_coins = cursor.fetchone()
+
+                if old_coins[0]-2 >= 0:
+                    new_coins = old_coins[0] - 2
+                    #set the new number of coins
+                    cursor.execute('UPDATE users SET coins = ? WHERE user_id = ?', (new_coins ,user_id,))
+                    conn.commit()
+                else:
+                    await update.callback_query.edit_message_text(
+                        "⚠ سکه های شما کافی نمیباشد!\nشما میتوانید از طریق بخش افزایش سکه تعداد سکه های خود را افزایش دهید...",
+                        reply_markup=inline_markup
+                    )
+                    if "insta_post_url" in context.user_data:
+                        del context.user_data["insta_post_url"]
+                    if "insta_post_step" in context.user_data:
+                        del context.user_data["insta_post_step"]
+                    return
+
+            if is_video:
+                video_files = [f for f in downloaded_files if f.endswith(".mp4")]
+                if video_files:
+                    media_path = video_files[0]
+                    with open(media_path, "rb") as media_file:
+                        await update.callback_query.message.reply_video(
+                            video=media_file,
+                            caption=post.caption
+                        )
+                else:
+                    await update.callback_query.edit_message_text(
+                        "⚠خطا: ویدیو دانلود نشده است. لطفا دوباره مراحل را طی کنید...",
+                        reply_markup=inline_markup
+                    )
+                    if "insta_post_url" in context.user_data:
+                        del context.user_data["insta_post_url"]
+                    if "insta_post_step" in context.user_data:
+                        del context.user_data["insta_post_step"]
+                    return
+            else:
+                image_files = [f for f in downloaded_files if f.endswith((".jpg", ".png"))]
+                if image_files:
+                    media_path = image_files[0]
+                    with open(media_path, "rb") as media_file:
+                        await update.callback_query.message.reply_photo(photo=media_file, caption=post.caption)
+                else:
+                    await update.callback_query.edit_message_text(
+                        "⚠خطا: عکس دانلود نشده است. لطفا دوباره مراحل را طی کنید...",
+                        reply_markup=inline_markup
+                    )
+                    if "insta_post_url" in context.user_data:
+                        del context.user_data["insta_post_url"]
+                    if "insta_post_step" in context.user_data:
+                        del context.user_data["insta_post_step"]
+                    return
+
+        except TimedOut:
+            await update.callback_query.edit_message_text(
+                "⚠ خطا: مشکلی در دانلود فایل پیش آمده. لطفا بعدا دوباره مراحل را طی کنید...",
+                reply_markup=inline_markup
+            )
+            if "insta_post_url" in context.user_data:
+                del context.user_data["insta_post_url"]
+            if "insta_post_step" in context.user_data:
+                del context.user_data["insta_post_step"]
+            return
+        except Exception as e:
+            await update.callback_query.edit_message_text(f"⚠ خطا:\n{e}")
+        finally:
+            if post_folder and os.path.exists(post_folder):
+                shutil.rmtree(post_folder)
+
+    elif query.data == "cancel_download_insta_post":
+        keyboard = [
+            [KeyboardButton("🔙 بازگشت 🔙")]
+        ]
+        inline_markup = ReplyKeyboardMarkup(keyboard)
+        
+        if "insta_post_url" in context.user_data:
+            del context.user_data["insta_post_url"]
+        if "insta_post_step" in context.user_data:
+            del context.user_data["insta_post_step"]
+
+        await query.edit_message_text(
+            "درخواست شما با موفقیت لغو شد ✅",
+            reply_markup=inline_markup   
+        )
+        return
 
 def main():
     print("[BOT] initializing...")
