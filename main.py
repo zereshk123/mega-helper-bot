@@ -315,7 +315,7 @@ async def echo(update: Update, context: CallbackContext) -> None:
 
     elif text == "🟢 اسپاتیفای 🟢":
         keyboard = [
-            [KeyboardButton("❌ لغو ❌")]
+            [KeyboardButton("🔙 بازگشت 🔙")]
         ]
         inline_markup = ReplyKeyboardMarkup(keyboard)
 
@@ -334,7 +334,7 @@ async def echo(update: Update, context: CallbackContext) -> None:
 
     elif text == "🔴 پست اینستاگرام 🔴":
         keyboard = [
-            [KeyboardButton("❌ لغو ❌")]
+            [KeyboardButton("🔙 بازگشت 🔙")]
         ]
         inline_markup = ReplyKeyboardMarkup(keyboard)
 
@@ -461,14 +461,12 @@ async def echo(update: Update, context: CallbackContext) -> None:
                 context.user_data["insta_post_url"] = shortcode
 
                 keyboard = [
-                    [InlineKeyboardButton("✅ بله", callback_data="confirm_download_insta_post")],
-                    [InlineKeyboardButton("❌ خیر", callback_data="cancel_download_insta_post")]
+                    [InlineKeyboardButton("✅ بله", callback_data="confirm_download_insta_post"), InlineKeyboardButton("❌ خیر", callback_data="cancel_download_insta_post")]
                 ]
                 reply_markup = InlineKeyboardMarkup(keyboard)
                 
                 await update.message.reply_text(
-                    photo=cover_image,
-                    caption="💠در صورت دانلود این پست 2 سکه از حساب شما کم میشود! آیا می‌خواهید این پست را دانلود کنید؟",
+                    "💠در صورت دانلود این پست 2 سکه از حساب شما کم میشود! آیا می‌خواهید این پست را دانلود کنید؟",
                     reply_markup=reply_markup,
                 )
                 return
@@ -749,7 +747,7 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
         keyboard = [
             [KeyboardButton("🔙 بازگشت 🔙")]
         ]
-        inline_markup = ReplyKeyboardMarkup(keyboard)
+        reply_markup = ReplyKeyboardMarkup(keyboard)
         
         if "insta_post_url" in context.user_data:
             del context.user_data["insta_post_url"]
@@ -758,7 +756,6 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
 
         await query.edit_message_text(
             "درخواست شما با موفقیت لغو شد ✅",
-            reply_markup=inline_markup   
         )
         return
 
