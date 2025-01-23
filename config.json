@@ -6,11 +6,13 @@
 
   "api2":{
     "name_bot": "nnnnmnmmn",
-    "token": "7909360615:AAESgbGRtLj5_9RnW-qJTA4Rxnyi-gb_DgQ"
+    "token": "7909360615:AAHg8iU5gpTmGrDNoAYrB_PtA30ze__R2FY"
   },
 
   "client_spotify":{
     "client_id": "337ee8e9d48e4061a9ca454800fc014c",
     "client_secret": "3fd7524baef74b448869fa79e03330a7"
-  }
+  },
+
+  "new_user_coin": 6
 }

@@ -25,13 +25,21 @@ TOKEN = config["api1"]["token"]
 SPOTIPY_CLIENT_ID = config["client_spotify"]["client_id"]
 SPOTIPY_CLIENT_SECRET = config["client_spotify"]["client_secret"]
 
-user_spotify_progress = {}
 user_support_progress = {}
 
 # --- DataBase ---
 def auth_db():
     with sqlite3.connect('data.db') as conn:
         cursor = conn.cursor()
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS download_spotify_progress(
+                user_id TEXT PRIMARY KEY,
+                step INTEGER,
+                query TEXT,
+                spotify_url TEXT
+            )
+        ''')
+
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS users(
             user_id TEXT NOT NULL PRIMARY KEY,
@@ -43,7 +51,6 @@ def auth_db():
         )''')
         conn.commit()
     print("[BOT] database checked✅")
-
 
 def get_spotify_track_info(spotify_url):
     sp = spotipy.Spotify(auth_manager=SpotifyClientCredentials(client_id=SPOTIPY_CLIENT_ID, client_secret=SPOTIPY_CLIENT_SECRET))
@@ -108,12 +115,13 @@ async def start(update: Update, context: CallbackContext) -> None:
         if user_status:
             None
         else:
-            cursor.execute("INSERT INTO users (user_id, name, username, admin_type, coins) VALUES (?, ?, ?, ?, ?)", (user_id, user_name, username, 0, 10))
+            cursor.execute("INSERT INTO users (user_id, name, username, admin_type, coins) VALUES (?, ?, ?, ?, ?)", (user_id, user_name, username, 0, config["new_user_coin"]))
             conn.commit()
             print(f"\nnew user add to database...\nuser id => {user_id}\nname => {user_name}\nusername => {username}\n\n")
         conn.commit()
 
     keyboard = [
+        [KeyboardButton("📥 دانـلودر 📥")],
         [KeyboardButton("📊 حساب کاربری 📊")],
         [KeyboardButton("💰 افزایش سکه 💰"), KeyboardButton("👨‍💻راهنما و پشتیبانی 👨‍💻")]
     ]
@@ -121,7 +129,7 @@ async def start(update: Update, context: CallbackContext) -> None:
 
     await context.bot.send_message(
         chat_id=user_id,
-        text=f"سلام {user_name} عزیز\n\n✨به ربات اسپاتیفای دانلود خوش اومدی\n💎برای شروع کار میتونی از دکمه های زیر استفاده کنی یا اگه میخوای آهنگی دانلود کنی کافیه لینک آهنگو برام بفرستی",
+        text=f"سلام {user_name} عزیز✨\n\n✨به ربات خوش اومدی\n💎برای ادامه کار میتونی از گزینه های زیر استفاده کنی...",
         reply_to_message_id=update.effective_message.id,
         reply_markup=inline_markup
     )
@@ -144,43 +152,7 @@ async def echo(update: Update, context: CallbackContext) -> None:
     if text == "🔙 بازگشت 🔙":
         await start(update, context)
         return
-    
-    elif re.match(pattern, text) is not None:
-        global user_spotify_progress
-        spotify_url = update.message.text.strip()
-        await update.message.reply_text("💠 در حال پردازش لینک...")
-        
-        track_name, artist_name, album_name, release_date, cover_image = get_spotify_track_info(spotify_url)
-        query = f"{track_name} {artist_name}"
-        
-        user_spotify_progress[update.message.from_user.id] = {
-            "query": query,
-            "spotify_url": spotify_url,
-            "message_id": update.message.message_id
-        }
-        
-        caption = (
-            f"🎵 آهنگ: {track_name}\n"
-            f"🎤 هنرمند: {artist_name}\n"
-            f"💿 آلبوم: {album_name}\n"
-            f'<a href="{spotify_url}">🔗 لینک آهنگ</a>\n'
-            f"📅 تاریخ انتشار: {release_date}\n\n"
-            "💠آیا می‌خواهید این آهنگ را دانلود کنید؟"
-        )
 
-        keyboard = [
-            [InlineKeyboardButton("✅ بله", callback_data="confirm")],
-            [InlineKeyboardButton("❌ خیر", callback_data="cancel")]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        await update.message.reply_photo(
-            photo=cover_image,
-            caption=caption,
-            reply_markup=reply_markup,
-            parse_mode="HTML"
-        )
-    
     elif text == "📊 حساب کاربری 📊":
         keyboard = [
             [KeyboardButton("🔙 بازگشت 🔙")]
@@ -223,20 +195,9 @@ async def echo(update: Update, context: CallbackContext) -> None:
             )     
 
     elif text == "💰 افزایش سکه 💰":
-        # keyboard = [
-        #     [KeyboardButton("🔙 بازگشت 🔙")]
-        # ]
-        # inline_markup = ReplyKeyboardMarkup(keyboard)
-
-        # await context.bot.send_message(
-        #     chat_id=user_id,
-        #     text="💠این بخش در مرحله ساخت است...",
-        #     reply_to_message_id=update.effective_message.id,
-        #     reply_markup=inline_markup
-        # )
-
         keyboard = [
-            [KeyboardButton("🎲 تاس 🎲")]
+            [KeyboardButton("🎲 تاس 🎲")],
+            [KeyboardButton("🔙 بازگشت 🔙")]
         ]
         inline_markup = ReplyKeyboardMarkup(keyboard)
         
@@ -326,10 +287,46 @@ async def echo(update: Update, context: CallbackContext) -> None:
         conn.close()
         return
 
+    elif text == "📥 دانـلودر 📥":
+        keyboard = [
+            [KeyboardButton("🟢 اسپاتیفای دانلودر 🟢")],
+            [KeyboardButton("🔙 بازگشت 🔙")]
+        ]
+        inline_markup = ReplyKeyboardMarkup(keyboard)
+
+        await context.bot.send_message(
+            chat_id=user_id,
+            text="💠یکی از گزینه های زیر رو انتخاب کنید:",
+            reply_to_message_id=update.effective_message.id,
+            reply_markup=inline_markup
+        )
+        return
+
+    elif text == "🟢 اسپاتیفای دانلودر 🟢":
+        keyboard = [
+            [KeyboardButton("🔙 بازگشت 🔙")]
+        ]
+        inline_markup = ReplyKeyboardMarkup(keyboard)
+
+        await context.bot.send_message(
+            chat_id=user_id,
+            text="💠لینک آهنگ مد نظر خود را بفرستید:",
+            reply_to_message_id=update.effective_message.id,
+            reply_markup=inline_markup
+        )    
+
+        with sqlite3.connect("data.db") as conn:
+            cursor = conn.cursor()
+            cursor.execute('INSERT INTO download_spotify_progress (user_id, step) VALUES (?, ?) ON CONFLICT(user_id) DO UPDATE SET step=?', (user_id, 1, 1))
+            conn.commit()
+        return
 
     elif text == "❌ لغو ❌":
-        if user_id in user_spotify_progress:
-            del user_spotify_progress[user_id]
+        with sqlite3.connect("data.db") as conn:
+            cursor = conn.cursor()
+            cursor.execute(f'DELETE FROM download_spotify_progress WHERE user_id = ? AND EXISTS (SELECT 1 FROM download_spotify_progress WHERE user_id = ?)', (user_id, user_id))
+            conn.commit()
+
         if user_id in user_support_progress:
             del user_support_progress[user_id]
 
@@ -337,6 +334,11 @@ async def echo(update: Update, context: CallbackContext) -> None:
         return
 
     else:
+        with sqlite3.connect("data.db") as conn:
+            cursor = conn.cursor()
+            cursor.execute(f"SELECT step FROM download_spotify_progress WHERE user_id = {user_id}")
+            download_spotify_result = cursor.fetchone()
+        
         if user_id in user_support_progress:
             inline_keyboard = [
                 [InlineKeyboardButton("🔙 برگشتن", callback_data="back")]
@@ -368,6 +370,58 @@ async def echo(update: Update, context: CallbackContext) -> None:
             del user_support_progress[user_id]
             return
 
+        elif download_spotify_result:
+            if re.match(pattern, text) is not None:
+                spotify_url = update.message.text.strip()
+                await update.message.reply_text("💠 در حال پردازش لینک...")
+                
+                track_name, artist_name, album_name, release_date, cover_image = get_spotify_track_info(spotify_url)
+                query = f"{track_name} {artist_name}"
+                
+                with sqlite3.connect("data.db") as conn:
+                    cursor = conn.cursor()
+                    cursor.execute('UPDATE download_spotify_progress SET step = ?, query = ?, spotify_url = ? WHERE user_id = ?', (2, query, spotify_url, user_id))
+                    conn.commit()
+                
+                caption = (
+                    f"🎵 آهنگ: {track_name}\n"
+                    f"🎤 هنرمند: {artist_name}\n"
+                    f"💿 آلبوم: {album_name}\n"
+                    f'🔗 <a href="{spotify_url}">لینک آهنگ</a>\n'
+                    f"📅 تاریخ انتشار: {release_date}\n\n"
+                    "💠در صورت دانلود آهنگ 2 سکه از حساب شما کم میشود! آیا می‌خواهید این آهنگ را دانلود کنید؟"
+                )
+
+                keyboard = [
+                    [InlineKeyboardButton("✅ بله", callback_data="confirm_download_spotify")],
+                    [InlineKeyboardButton("❌ خیر", callback_data="cancel_download_spotify")]
+                ]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+                
+                await update.message.reply_photo(
+                    photo=cover_image,
+                    caption=caption,
+                    reply_markup=reply_markup,
+                    parse_mode="HTML"
+                )
+            else:
+                keyboard = [
+                    [KeyboardButton("🔙 بازگشت 🔙")]
+                ]
+                inline_markup = ReplyKeyboardMarkup(keyboard)
+
+                await context.bot.send_message(
+                    chat_id=user_id,
+                    text="⚠ لینک ارسال شده اشتباه است! لطفا دوباره مراحل را طی کنید...",
+                    reply_to_message_id=update.effective_message.id,
+                    reply_markup=inline_markup
+                )
+
+                with sqlite3.connect("data.db") as conn:
+                    cursor = conn.cursor()
+                    cursor.execute("DELETE FROM download_spotify_progress WHERE user_id = ?", (user_id,))
+                    conn.commit()
+                return
         else:
             keyboard = [
                 [KeyboardButton("🔙 بازگشت 🔙")]
@@ -380,43 +434,132 @@ async def echo(update: Update, context: CallbackContext) -> None:
                 reply_to_message_id=update.effective_message.id,
                 reply_markup=inline_markup
             )
+            return
 
 async def handle_confirmation(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
     user_id = query.from_user.id
     await query.answer()
 
-    if query.data == "confirm":
-        await context.bot.send_message(chat_id=user_id, text="💠در حال دانلود آهنگ...")
-        
-        try:
-            query_text = user_spotify_progress[user_id]["query"]
-            file_path = download_from_youtube(query_text)
+    with sqlite3.connect("data.db") as conn:
+        cursor = conn.cursor()
+        cursor.execute(f"SELECT step FROM download_spotify_progress WHERE user_id = {user_id}")
+        download_spotify_result = cursor.fetchone()
+
+    if query.data == "confirm_download_spotify":
+        if download_spotify_result:
+            await context.bot.send_message(
+                chat_id=user_id,
+                text="💠در حال دانلود آهنگ...",
+                reply_to_message_id=query.message.message_id
+            )
+
+            with sqlite3.connect("data.db") as conn:
+                cursor = conn.cursor()
+                cursor.execute(f"SELECT * FROM download_spotify_progress WHERE user_id = ?", (user_id,))
+                download_spotify_progress = cursor.fetchone()
+                download_spotify_progress = list(download_spotify_progress)
+                print(f"\n\nline 464: user_id= {download_spotify_progress[0]}\nstep= {download_spotify_progress[1]}\nqury= {download_spotify_progress[2]}\n url= {download_spotify_progress[3]}\n\n")
             
-            await context.bot.send_message(chat_id=user_id, text="✅آهنگ با موفقیت دانلود شد👌\nدر حال ارسال فایل...")
-            with open(file_path, 'rb') as audio_file:
-                await context.bot.send_audio(chat_id=user_id, audio=audio_file)
-            os.remove(file_path)
-        
-        except Exception as e:
-            error_message = str(e)
+            try:
+                query_text = download_spotify_progress[2]
+                file_path = download_from_youtube(query_text)
+                
+                await context.bot.send_message(
+                    chat_id=user_id,
+                    text="✅آهنگ با موفقیت دانلود شد👌\nدر حال ارسال فایل..."
+                )
+                
+                # delete the coin in account 
+                with sqlite3.connect("data.db") as conn:
+                    cursor = conn.cursor()
+                    #get the number of coins
+                    cursor.execute('SELECT coins FROM users WHERE user_id = ?', (user_id,))
+                    old_coins = cursor.fetchone()
+                    new_coins = old_coins[0] - 2
 
-            if error_message == "1008096572":
-                await context.bot.send_message(
-                    chat_id=user_id,
-                    text=f"⚠مشکلی پیش آمده:\n\nمهلت دانلود این آهنگ گذشته است! لطفا دوباره لینک آن را بفرستید..."
-                )
-            else:
-                await context.bot.send_message(
-                    chat_id=user_id,
-                    text=f"⚠مشکلی پیش آمده:\n\n{error_message}"
-                )
+                    #set the new number of coins
+                    cursor.execute('UPDATE users SET coins = ? WHERE user_id = ?', (new_coins ,user_id,))
+                    conn.commit()
+            
+                with open(file_path, 'rb') as audio_file:
+                    await context.bot.send_audio(
+                        chat_id=user_id,
+                        audio=audio_file
+                    )
+                os.remove(file_path)
+
+                with sqlite3.connect("data.db") as conn:
+                    cursor = conn.cursor()
+                    cursor.execute(f"DELETE FROM download_spotify_progress WHERE user_id = ?", (user_id,))
+                    conn.commit()
+
+                return
+            
+            except Exception as e:
+                with sqlite3.connect("data.db") as conn:
+                    cursor = conn.cursor()
+                    cursor.execute('DELETE FROM download_spotify_progress WHERE user_id = ? AND EXISTS (SELECT 1 FROM download_spotify_progress WHERE user_id = ?)', (user_id, user_id))
+                    conn.commit()
+ 
+                error_message = str(e)
+
+                if error_message == "1008096572":
+                    await context.bot.send_message(
+                        chat_id=user_id,
+                        text=f"⚠مشکلی پیش آمده:\n\nمهلت دانلود این آهنگ گذشته است! لطفا دوباره لینک آن را بفرستید..."
+                    )
+                else:
+                    await context.bot.send_message(
+                        chat_id=user_id,
+                        text=f"⚠مشکلی پیش آمده:\n\n{error_message}"
+                    )
     
-    elif query.data == "cancel":
-        if user_id in user_spotify_progress:
-            del user_spotify_progress[user_id]
+        else:
+            keyboard = [
+                [KeyboardButton("🔙 بازگشت 🔙")]
+            ]
+            inline_markup = ReplyKeyboardMarkup(keyboard)
 
-        await context.bot.send_message(chat_id=user_id, text="❌فرآیند دانلود لغو شد")
+            await context.bot.send_message(
+                chat_id=user_id,
+                text="⚠ مشکلی پیش آمده...\nلطفا دوباره تلاش کنید",
+                reply_to_message_id=update.effective_message.id,
+                reply_markup=inline_markup
+            )
+            return
+
+    elif query.data == "cancel_download_spotify":
+        if download_spotify_result:
+            keyboard = [
+                [KeyboardButton("🔙 بازگشت 🔙")]
+            ]
+            inline_markup = ReplyKeyboardMarkup(keyboard)
+                    
+            with sqlite3.connect("data.db") as conn:
+                cursor = conn.cursor()
+                cursor.execute(f"DELETE FROM download_spotify_progress WHERE user_id = ?", (user_id,))
+                conn.commit()
+
+            await context.bot.send_message(
+                chat_id=user_id,
+                text="✅ درخواست شما برای دانلود لغو شد. اگر می‌خواهید دوباره امتحان کنید، لطفاً لینک جدیدی ارسال کنید...",
+                reply_markup=inline_markup,
+                reply_to_message_id=query.message.message_id
+            )
+        
+        else:
+            keyboard = [
+                [KeyboardButton("🔙 بازگشت 🔙")]
+            ]
+            inline_markup = ReplyKeyboardMarkup(keyboard)
+
+            await context.bot.send_message(
+                chat_id=user_id,
+                text="⚠ این درخواست قبلاً پردازش شده است و دیگر معتبر نیست. لطفاً دوباره مراحل را طی کنید...",
+                reply_markup=inline_markup,
+                reply_to_message_id=query.message.message_id
+            )            
 
 def main():
     print("[BOT] initializing...")
