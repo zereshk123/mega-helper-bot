@@ -324,12 +324,14 @@ async def echo(update: Update, context: CallbackContext) -> None:
             text="💠لینک آهنگ مد نظر خود را بفرستید:",
             reply_to_message_id=update.effective_message.id,
             reply_markup=inline_markup
-        )    
+        )
 
-        with sqlite3.connect("data.db") as conn:
-            cursor = conn.cursor()
-            cursor.execute('INSERT INTO download_spotify_progress (user_id, step) VALUES (?, ?) ON CONFLICT(user_id) DO UPDATE SET step=?', (user_id, 1, 1))
-            conn.commit()
+        context.user_data["spotify_step"] = 1
+
+        # with sqlite3.connect("data.db") as conn:
+        #     cursor = conn.cursor()
+        #     cursor.execute('INSERT INTO download_spotify_progress (user_id, step) VALUES (?, ?) ON CONFLICT(user_id) DO UPDATE SET step=?', (user_id, 1, 1))
+        #     conn.commit()
         return
 
     elif text == "🔴 پست اینستاگرام 🔴":
@@ -349,10 +351,17 @@ async def echo(update: Update, context: CallbackContext) -> None:
         return
 
     elif text == "❌ لغو ❌":
-        with sqlite3.connect("data.db") as conn:
-            cursor = conn.cursor()
-            cursor.execute(f'DELETE FROM download_spotify_progress WHERE user_id = ? AND EXISTS (SELECT 1 FROM download_spotify_progress WHERE user_id = ?)', (user_id, user_id))
-            conn.commit()
+        if "spotify_step" in context.user_data:
+            del context.user_data["spotify_step"]
+        if "spotify_query" in context.user_data:
+            del context.user_data["spotify_query"]
+        if "spotify_url" in context.user_data:
+            del context.user_data["spotify_url"]
+
+        if "insta_post_url" in context.user_data:
+            del context.user_data["insta_post_url"]
+        if "insta_post_step" in context.user_data:
+            del context.user_data["insta_post_step"]
 
         if user_id in user_support_progress:
             del user_support_progress[user_id]
@@ -361,12 +370,8 @@ async def echo(update: Update, context: CallbackContext) -> None:
         return
 
     else:
-        with sqlite3.connect("data.db") as conn:
-            cursor = conn.cursor()
-            cursor.execute(f"SELECT step FROM download_spotify_progress WHERE user_id = {user_id}")
-            download_spotify_result = cursor.fetchone()
-        
         insta_post_step = context.user_data.get("insta_post_step")
+        spotify_step = context.user_data.get("spotify_step")
 
         if user_id in user_support_progress:
             inline_keyboard = [
@@ -399,18 +404,17 @@ async def echo(update: Update, context: CallbackContext) -> None:
             del user_support_progress[user_id]
             return
 
-        elif download_spotify_result:
+        elif spotify_step:
             if re.match(pattern, text) is not None:
                 spotify_url = update.message.text.strip()
                 await update.message.reply_text("💠 در حال پردازش لینک...")
                 
                 track_name, artist_name, album_name, release_date, cover_image = get_spotify_track_info(spotify_url)
                 query = f"{track_name} {artist_name}"
-                
-                with sqlite3.connect("data.db") as conn:
-                    cursor = conn.cursor()
-                    cursor.execute('UPDATE download_spotify_progress SET step = ?, query = ?, spotify_url = ? WHERE user_id = ?', (2, query, spotify_url, user_id))
-                    conn.commit()
+
+                context.user_data["spotify_step"] = 2
+                context.user_data["spotify_query"] = query
+                context.user_data["spotify_url"] = spotify_url
                 
                 caption = (
                     f"🎵 آهنگ: {track_name}\n"
@@ -446,10 +450,13 @@ async def echo(update: Update, context: CallbackContext) -> None:
                     reply_markup=inline_markup
                 )
 
-                with sqlite3.connect("data.db") as conn:
-                    cursor = conn.cursor()
-                    cursor.execute("DELETE FROM download_spotify_progress WHERE user_id = ?", (user_id,))
-                    conn.commit()
+                if "spotify_step" in context.user_data:
+                    del context.user_data["spotify_step"]
+                if "spotify_query" in context.user_data:
+                    del context.user_data["spotify_query"]
+                if "spotify_url" in context.user_data:
+                    del context.user_data["spotify_url"]
+
                 return
         
         elif insta_post_step:
@@ -498,32 +505,20 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
     user_id = query.from_user.id
     await query.answer()
 
-    with sqlite3.connect("data.db") as conn:
-        cursor = conn.cursor()
-        cursor.execute(f"SELECT step FROM download_spotify_progress WHERE user_id = {user_id}")
-        download_spotify_result = cursor.fetchone()
+    spotify_step = context.user_data.get("spotify_step")
 
     if query.data == "confirm_download_spotify":
-        if download_spotify_result:
-            await context.bot.send_message(
-                chat_id=user_id,
-                text="💠در حال دانلود آهنگ...",
-                reply_to_message_id=query.message.message_id
+        if spotify_step:
+            await query.edit_message_caption(
+                caption="🎧 در حال دانلود آهنگ..."
             )
 
-            with sqlite3.connect("data.db") as conn:
-                cursor = conn.cursor()
-                cursor.execute(f"SELECT * FROM download_spotify_progress WHERE user_id = ?", (user_id,))
-                download_spotify_progress = cursor.fetchone()
-                download_spotify_progress = list(download_spotify_progress)
-
             try:
-                query_text = download_spotify_progress[2]
+                query_text = context.user_data.get("spotify_query")
                 file_path = download_from_youtube(query_text)
                 
                 await context.bot.send_message(
-                    chat_id=user_id,
-                    text="✅آهنگ با موفقیت دانلود شد👌\nدر حال ارسال فایل..."
+                    text="✅ آهنگ با موفقیت دانلود شد👌\nدر حال ارسال فایل..."
                 )
                 
                 # delete the coin in account 
@@ -554,77 +549,74 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
                     )
                 os.remove(file_path)
 
-                with sqlite3.connect("data.db") as conn:
-                    cursor = conn.cursor()
-                    cursor.execute(f"DELETE FROM download_spotify_progress WHERE user_id = ?", (user_id,))
-                    conn.commit()
+                if "spotify_step" in context.user_data:
+                    del context.user_data["spotify_step"]
+                if "spotify_query" in context.user_data:
+                    del context.user_data["spotify_query"]
+                if "spotify_url" in context.user_data:
+                    del context.user_data["spotify_url"]
 
                 return
             
             except Exception as e:
-                with sqlite3.connect("data.db") as conn:
-                    cursor = conn.cursor()
-                    cursor.execute('DELETE FROM download_spotify_progress WHERE user_id = ? AND EXISTS (SELECT 1 FROM download_spotify_progress WHERE user_id = ?)', (user_id, user_id))
-                    conn.commit()
+                if "spotify_step" in context.user_data:
+                    del context.user_data["spotify_step"]
+                if "spotify_query" in context.user_data:
+                    del context.user_data["spotify_query"]
+                if "spotify_url" in context.user_data:
+                    del context.user_data["spotify_url"]
  
                 error_message = str(e)
 
                 if error_message == "1008096572":
-                    await context.bot.send_message(
-                        chat_id=user_id,
-                        text=f"⚠مشکلی پیش آمده:\n\nمهلت دانلود این آهنگ گذشته است! لطفا دوباره لینک آن را بفرستید..."
+                    await query.edit_message_caption(
+                        caption="⏳ زمان دانلود به پایان رسید!\n\nلطفاً لینک آهنگ را دوباره ارسال کنید تا بتوانید آن را دانلود کنید."
                     )
                 else:
-                    await context.bot.send_message(
-                        chat_id=user_id,
-                        text=f"⚠مشکلی پیش آمده:\n\n{error_message}"
+                    await query.edit_message_caption(
+                        caption=f"⚠ مشکلی پیش آمده:\n\n{error_message}"
                     )
-    
         else:
-            keyboard = [
-                [KeyboardButton("🔙 بازگشت 🔙")]
-            ]
-            inline_markup = ReplyKeyboardMarkup(keyboard)
-
-            await context.bot.send_message(
-                chat_id=user_id,
-                text="⚠ مشکلی پیش آمده...\nلطفا دوباره تلاش کنید",
-                reply_to_message_id=update.effective_message.id,
-                reply_markup=inline_markup
+            await query.edit_message_caption(
+                caption="⚠ مشکلی پیش آمده...\nلطفا دوباره تلاش کنید",
             )
+
+            if "spotify_step" in context.user_data:
+                del context.user_data["spotify_step"]
+            if "spotify_query" in context.user_data:
+                del context.user_data["spotify_query"]
+            if "spotify_url" in context.user_data:
+                del context.user_data["spotify_url"]
+
             return
 
     elif query.data == "cancel_download_spotify":
-        if download_spotify_result:
-            keyboard = [
-                [KeyboardButton("🔙 بازگشت 🔙")]
-            ]
-            inline_markup = ReplyKeyboardMarkup(keyboard)
-                    
-            with sqlite3.connect("data.db") as conn:
-                cursor = conn.cursor()
-                cursor.execute(f"DELETE FROM download_spotify_progress WHERE user_id = ?", (user_id,))
-                conn.commit()
+        if spotify_step:
+            if "spotify_step" in context.user_data:
+                del context.user_data["spotify_step"]
+            if "spotify_query" in context.user_data:
+                del context.user_data["spotify_query"]
+            if "spotify_url" in context.user_data:
+                del context.user_data["spotify_url"]
 
-            await context.bot.send_message(
-                chat_id=user_id,
-                text="✅ درخواست شما برای دانلود لغو شد. اگر می‌خواهید دوباره امتحان کنید، لطفاً لینک جدیدی ارسال کنید...",
-                reply_markup=inline_markup,
-                reply_to_message_id=query.message.message_id
+            await query.edit_message_caption(
+                caption="درخواست شما با موفقیت لغو شد ✅"
             )
-        
-        else:
-            keyboard = [
-                [KeyboardButton("🔙 بازگشت 🔙")]
-            ]
-            inline_markup = ReplyKeyboardMarkup(keyboard)
 
-            await context.bot.send_message(
-                chat_id=user_id,
-                text="⚠ این درخواست قبلاً پردازش شده است و دیگر معتبر نیست. لطفاً دوباره مراحل را طی کنید...",
-                reply_markup=inline_markup,
-                reply_to_message_id=query.message.message_id
-            )            
+            return
+        else:
+            await query.edit_message_caption(
+                caption="⚠ این درخواست قبلاً پردازش شده است و دیگر معتبر نیست. لطفاً دوباره مراحل را طی کنید..."
+            )
+
+            if "spotify_step" in context.user_data:
+                del context.user_data["spotify_step"]
+            if "spotify_query" in context.user_data:
+                del context.user_data["spotify_query"]
+            if "spotify_url" in context.user_data:
+                del context.user_data["spotify_url"]
+
+            return       
 
     elif query.data == "confirm_download_insta_post":
         post_url = context.user_data.get("insta_post_url")
@@ -685,10 +677,12 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
                         "⚠ سکه های شما کافی نمیباشد!\nشما میتوانید از طریق بخش افزایش سکه تعداد سکه های خود را افزایش دهید...",
                         reply_markup=inline_markup
                     )
+
                     if "insta_post_url" in context.user_data:
                         del context.user_data["insta_post_url"]
                     if "insta_post_step" in context.user_data:
                         del context.user_data["insta_post_step"]
+
                     return
 
             if is_video:
@@ -744,11 +738,6 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
                 shutil.rmtree(post_folder)
 
     elif query.data == "cancel_download_insta_post":
-        keyboard = [
-            [KeyboardButton("🔙 بازگشت 🔙")]
-        ]
-        reply_markup = ReplyKeyboardMarkup(keyboard)
-        
         if "insta_post_url" in context.user_data:
             del context.user_data["insta_post_url"]
         if "insta_post_step" in context.user_data:
