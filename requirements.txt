@@ -3,3 +3,4 @@ python-telegram-bot
 spotipy
 pytz
 instaloader
+fuzzywuzzy

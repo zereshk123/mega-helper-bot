@@ -1,6 +1,7 @@
 import sys
 sys.stdout.reconfigure(encoding='utf-8')
 
+from fuzzywuzzy import fuzz
 import requests
 import instaloader
 import glob
@@ -139,25 +140,26 @@ def download_from_soundcloud(query, output_path="downloads/"):
 
     with yt_dlp.YoutubeDL(options) as ydl:
         try:
-            print(f"\n\n{query}\n\n")
-            print(f"🔍 جستجو در یوتیوب: {query}")
-
             search_results = ydl.extract_info(f"ytsearch:{query}", download=False)
 
             if 'entries' in search_results and len(search_results['entries']) > 0:
                 best_match = None
+                highest_similarity = 0
+                
                 for entry in search_results['entries']:
                     title = entry['title'].lower()
-                    if any(word in title for word in query.lower().split()):
+                    similarity_score = fuzz.partial_ratio(query.lower(), title)
+                    
+                    if similarity_score > highest_similarity:
+                        highest_similarity = similarity_score
                         best_match = entry
-                        break
 
-                if best_match:
+                if best_match and highest_similarity > 60:
                     download_path = f"{output_path}{best_match['title']}.mp3"
                     ydl.download([best_match['webpage_url']])
                     return download_path
                 else:
-                    raise Exception("⚠ متاسفانه آهنگ مد نظر شما یافت نشد :(")
+                    raise Exception("⚠ هیچ آهنگ یا ویدیویی با تطابق بالای 70 درصد یافت نشد :(")
             else:
                 raise Exception("⚠متاسفیم... آهنگ مورد نظر شما یافت نشد :(")
 
