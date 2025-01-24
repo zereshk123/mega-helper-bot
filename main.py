@@ -1152,8 +1152,8 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
             except Exception as e:
                 await update.callback_query.edit_message_text(f"⚠ خطا:\n{e}")
             finally:
-            if post_folder and os.path.exists(post_folder):
-                shutil.rmtree(post_folder)
+                if post_folder and os.path.exists(post_folder):
+                    shutil.rmtree(post_folder)
         else:
             await query.edit_message_caption(
                 caption="⚠ این درخواست قبلاً پردازش شده است و دیگر معتبر نیست. لطفاً دوباره مراحل را طی کنید..."
