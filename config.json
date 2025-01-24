@@ -27,5 +27,7 @@
 
   "new_user_coin": 6,
 
-  "spotify_channel": "@Spotify_Mega_Helper"
+  "channels":[
+    "@music_mega_helper"
+  ]
 }

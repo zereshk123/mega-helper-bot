@@ -12,7 +12,7 @@ import os
 import json
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton, ChatMember
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext, CallbackQueryHandler
 import sqlite3
 from telegram.error import TimedOut
@@ -26,7 +26,7 @@ tehran_tz = pytz.timezone('Asia/Tehran')
 # select token
 with open('config.json', 'r', encoding='utf-8') as config_file:
     config = json.load(config_file)
-TOKEN = config["api1"]["token"]
+TOKEN = config["api2"]["token"]
 SPOTIPY_CLIENT_ID = config["client_spotify"]["client_id"]
 SPOTIPY_CLIENT_SECRET = config["client_spotify"]["client_secret"]
 
@@ -36,8 +36,6 @@ loader = instaloader.Instaloader(
     download_comments=config["insta_loader_opt"]["download_comments"],
     save_metadata=config["insta_loader_opt"]["save_metadata"]
 )
-
-print(config["spotify_channel"])
 
 user_support_progress = {}
 
@@ -106,10 +104,45 @@ def download_from_youtube(query, output_path="downloads/"):
         except Exception as e:
             raise Exception(f"خطا در دانلود: {str(e)}")
 
+async def check_user_in_channel(user_id: int, chat_id: str, context: CallbackContext) -> bool:
+    try:
+        member = await context.bot.get_chat_member(chat_id=chat_id, user_id=user_id)
+        return member.status in [ChatMember.MEMBER, ChatMember.ADMINISTRATOR, ChatMember.OWNER]
+    
+    except Exception as e:
+        print(f"\nError checking user membership: {e}\n\n")
+        return False
+
 async def start(update: Update, context: CallbackContext) -> None:
     user_id = str(update.effective_user.id)
     user_name = update.effective_user.full_name
     username = update.effective_user.username
+
+    required_channels = config["channels"]
+    not_joined_channels = []
+
+    for channel in required_channels:
+        if not await check_user_in_channel(user_id, channel, context):
+            not_joined_channels.append(channel)
+
+    if not_joined_channels:
+        keyboard = [
+            [InlineKeyboardButton(text=f"🔗 {channel}", url=f"https://t.me/{channel[1:]}")]
+            for channel in not_joined_channels
+        ]
+
+        reply_markup = InlineKeyboardMarkup(keyboard)
+
+        message = (
+            "⚠️ برای استفاده از ربات، لطفاً ابتدا عضو کانال‌های زیر شوید:\n\n"
+            "پس از عضویت، دوباره پیام بفرستید."
+        )
+        await context.bot.send_message(
+            chat_id=user_id,
+            text=message,
+            reply_markup=reply_markup
+        )
+        return
 
     # check user
     with sqlite3.connect("data.db") as conn:
@@ -153,6 +186,32 @@ async def echo(update: Update, context: CallbackContext) -> None:
     user_id = str(update.effective_user.id)
     text = update.message.text
     pattern = r'https?://open\.spotify\.com/(track|album|playlist|artist)/[a-zA-Z0-9]+'
+
+    required_channels = config["channels"]
+    not_joined_channels = []
+
+    for channel in required_channels:
+        if not await check_user_in_channel(user_id, channel, context):
+            not_joined_channels.append(channel)
+
+    if not_joined_channels:
+        keyboard = [
+            [InlineKeyboardButton(text=f"🔗 {channel}", url=f"https://t.me/{channel[1:]}")]
+            for channel in not_joined_channels
+        ]
+
+        reply_markup = InlineKeyboardMarkup(keyboard)
+
+        message = (
+            "⚠️ برای استفاده از ربات، لطفاً ابتدا عضو کانال‌های زیر شوید:\n\n"
+            "پس از عضویت، دوباره پیام بفرستید."
+        )
+        await context.bot.send_message(
+            chat_id=user_id,
+            text=message,
+            reply_markup=reply_markup
+        )
+        return
     
     if text == "🔙 بازگشت 🔙":
         await start(update, context)
@@ -704,7 +763,7 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
                 bot = context.bot
                 with open(file_path, 'rb') as audio_file:
                     await bot.send_audio(
-                        chat_id=config["spotify_channel"],
+                        chat_id=config["channels"][0],
                         audio=audio_file,
                         caption=caption,
                         parse_mode="HTML"
