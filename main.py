@@ -26,7 +26,7 @@ tehran_tz = pytz.timezone('Asia/Tehran')
 # select token
 with open('config.json', 'r', encoding='utf-8') as config_file:
     config = json.load(config_file)
-TOKEN = config["api1"]["token"]
+TOKEN = config["api"]["token"]
 SPOTIPY_CLIENT_ID = config["client_spotify"]["client_id"]
 SPOTIPY_CLIENT_SECRET = config["client_spotify"]["client_secret"]
 
@@ -118,6 +118,7 @@ async def start(update: Update, context: CallbackContext) -> None:
     user_name = update.effective_user.full_name
     username = update.effective_user.username
 
+    # check channels
     required_channels = config["channels"]
     not_joined_channels = []
 
