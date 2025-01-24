@@ -706,7 +706,8 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
                     await bot.send_audio(
                         chat_id=config["spotify_channel"],
                         audio=audio_file,
-                        caption=caption
+                        caption=caption,
+                        parse_mode="HTML"
                     )
 
                 #send to user
@@ -714,7 +715,8 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
                     await context.bot.send_audio(
                         chat_id=user_id,
                         audio=audio_file,
-                        caption=caption
+                        caption=caption,
+                        parse_mode="HTML"
                     )
 
                 os.remove(file_path)
