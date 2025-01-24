@@ -691,7 +691,7 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
                 #send to channel
                 bot = context.bot
                 with open(file_path, 'rb') as audio_file:
-                    bot.send_audio(
+                    await bot.send_audio(
                         chat_id=config["spotify_channel"],
                         audio=audio_file
                     )
