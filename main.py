@@ -20,7 +20,7 @@ from time import sleep
 from datetime import datetime, timedelta
 
 import pytz
-tehran_tz = pytz.timezone('Asia/Tehran')
+tehran_tz = pytz.timezone('Asia/Tehran')    
 
 
 # select token
@@ -688,11 +688,21 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
                         conn.commit()
                         return
             
+                #send to channel
+                bot = context.bot
+                with open(file_path, 'rb') as audio_file:
+                    bot.send_audio(
+                        chat_id=config["spotify_channel"],
+                        audio=audio_file
+                    )
+
+                #send to user
                 with open(file_path, 'rb') as audio_file:
                     await context.bot.send_audio(
                         chat_id=user_id,
                         audio=audio_file
                     )
+
                 os.remove(file_path)
 
                 if "spotify_step" in context.user_data:

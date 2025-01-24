@@ -25,5 +25,7 @@
   
   "api_currency_digi" : "https://api.nobitex.ir/market/global-stats",
 
-  "new_user_coin": 6
+  "new_user_coin": 6,
+
+  "spotify_channel": "@Spotify_Mega_Helper"
 }
