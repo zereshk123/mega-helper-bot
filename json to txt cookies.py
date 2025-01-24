@@ -25,7 +25,7 @@ sys.stdout.reconfigure(encoding='utf-8')
 # # استفاده از این تابع
 # json_to_netscape("cookies.json", "cookies.txt")
 
-# import requests
+import requests
 
 # # آدرس API
 # url = "https://brsapi.ir/FreeTsetmcBourseApi/Api_Free_Gold_Currency.json"
@@ -55,3 +55,46 @@ sys.stdout.reconfigure(encoding='utf-8')
 # else:
 #     print(f"❌ خطا در دریافت داده‌ها: {response.status_code}")
 
+
+
+import requests
+
+# آدرس API
+url = "https://api.nobitex.ir/market/global-stats"
+
+# ارسال درخواست GET به API
+response = requests.post(url)
+
+# لیست ارزهای معروف (بدون DOT, LINK, MATIC, AVAX, UNI, ATOM, XLM, XMR)
+popular_currencies = [
+    "btc",   # بیت‌کوین
+    "eth",   # اتریوم
+    "bnb",   # بایننس کوین
+    "xrp",   # ریپل
+    "ada",   # کاردانو
+    "sol",   # سولانا
+    "doge",  # دوج‌کوین
+    "ltc",   # لایت‌کوین
+    "shib",  # شیبا اینو
+    "trx",   # ترون
+    "etc",   # اتریوم کلاسیک
+]
+
+# بررسی وضعیت پاسخ
+if response.status_code == 200:
+    # تبدیل پاسخ به JSON
+    data = response.json()
+    
+    # استخراج داده‌های مربوط به بازارها
+    markets = data.get("markets", {}).get("binance", {})
+    
+    # نمایش ارزهای معروف
+    print("{:<10} {:<15}".format("نماد ارز", "قیمت (USD)"))
+    print("-" * 25)
+    for currency in popular_currencies:
+        if currency in markets:
+            print("{:<10} {:<15}".format(currency, markets[currency]))
+        else:
+            print("{:<10} {:<15}".format(currency, "یافت نشد!"))
+else:
+    print("خطا در دریافت داده. کد وضعیت:", response.status_code)

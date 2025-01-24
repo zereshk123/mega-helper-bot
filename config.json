@@ -21,5 +21,9 @@
     "save_metadata": false
   },
 
+  "api_currency": "https://brsapi.ir/FreeTsetmcBourseApi/Api_Free_Gold_Currency.json",
+  
+  "api_currency_digi" : "https://api.nobitex.ir/market/global-stats",
+
   "new_user_coin": 6
 }

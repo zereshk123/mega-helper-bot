@@ -1,6 +1,7 @@
 import sys
 sys.stdout.reconfigure(encoding='utf-8')
 
+import requests
 import instaloader
 import glob
 import shutil
@@ -42,15 +43,6 @@ user_support_progress = {}
 def auth_db():
     with sqlite3.connect('data.db') as conn:
         cursor = conn.cursor()
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS download_spotify_progress(
-                user_id TEXT PRIMARY KEY,
-                step INTEGER,
-                query TEXT,
-                spotify_url TEXT
-            )
-        ''')
-
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS users(
             user_id TEXT NOT NULL PRIMARY KEY,
@@ -133,7 +125,7 @@ async def start(update: Update, context: CallbackContext) -> None:
 
     keyboard = [
         [KeyboardButton("📥 دانـلودر 📥")],
-        [KeyboardButton("📊 حساب کاربری 📊")],
+        [KeyboardButton("📊 حساب کاربری 📊"), KeyboardButton("💵 قیمت ارز 💵")],
         [KeyboardButton("💰 افزایش سکه 💰"), KeyboardButton("👨‍💻راهنما و پشتیبانی 👨‍💻")]
     ]
     inline_markup = ReplyKeyboardMarkup(keyboard)
@@ -349,6 +341,160 @@ async def echo(update: Update, context: CallbackContext) -> None:
 
         context.user_data["insta_post_step"] = 1
         return
+
+    elif text == "💵 قیمت ارز 💵":
+        keyboard = [
+            [KeyboardButton("💰 طلا 💰"), KeyboardButton("💵 واحد پولی 💵"), KeyboardButton("₿ رمزارز ₿")],
+            [KeyboardButton("🔙 بازگشت 🔙")]
+        ]
+        inline_markup = ReplyKeyboardMarkup(keyboard)
+        
+        await context.bot.send_message(
+            chat_id=user_id,
+            text="💠یکی از ارز های زیر را انتخاب کنید...",
+            reply_to_message_id=update.effective_message.id,
+            reply_markup=inline_markup
+        )
+        return
+
+    elif text == "💰 طلا 💰":
+        response = requests.get(config["api_currency"])
+
+        if response.status_code == 200:
+            keyboard = [
+                [InlineKeyboardButton("قیمت ارز", callback_data="a"),
+                InlineKeyboardButton("نام ارز", callback_data="a")]
+            ]
+
+            data = response.json()
+
+            for item in data["gold"]:
+                name_button = InlineKeyboardButton(item['name'],  callback_data="a")
+                price_button = InlineKeyboardButton(f"{item['price']:,} تومان",  callback_data="a")
+
+                keyboard.append([price_button, name_button])
+
+            inline_markup = InlineKeyboardMarkup(keyboard)
+
+            await context.bot.send_message(
+                chat_id=user_id,
+                text="💰 لیست قیمت‌های طلا:",
+                reply_to_message_id=update.effective_message.id,
+                reply_markup=inline_markup
+            )
+            return
+
+        else:
+            keyboard = [
+                [KeyboardButton("🔙 بازگشت 🔙")]
+            ]
+            inline_markup = ReplyKeyboardMarkup(keyboard)
+            
+            await context.bot.send_message(
+                chat_id=user_id,
+                text="⚠ مشکلی پیش آمده!\nلطفا به پشتیبانی اطلاع دهید...",
+                reply_to_message_id=update.effective_message.id,
+                reply_markup=inline_markup
+            )
+            return
+
+    elif text == "💵 واحد پولی 💵":
+        response = requests.get(config["api_currency"])
+
+        if response.status_code == 200:
+            keyboard = [
+                [InlineKeyboardButton("قیمت ارز", callback_data="a"),
+                InlineKeyboardButton("نام ارز", callback_data="a")]
+            ]
+
+            data = response.json()
+
+            for item in data["currency"]:
+                name_button = InlineKeyboardButton(item['name'],  callback_data="a")
+                price_button = InlineKeyboardButton(f"{item['price']:,} تومان",  callback_data="a")
+
+                keyboard.append([price_button, name_button])
+
+            inline_markup = InlineKeyboardMarkup(keyboard)
+
+            await context.bot.send_message(
+                chat_id=user_id,
+                text="💵 لیست قیمت‌ واحد های پولی:",
+                reply_to_message_id=update.effective_message.id,
+                reply_markup=inline_markup
+            )
+            return
+        else:
+            keyboard = [
+                [KeyboardButton("🔙 بازگشت 🔙")]
+            ]
+
+            await context.bot.send_message(
+                chat_id=user_id,
+                text="⚠ مشکلی پیش آمده! لطفا به پشتیبانی اطلاع دهید...",
+                reply_to_message_id=update.effective_message.id,
+                reply_markup=inline_markup
+            )
+            return
+        
+    elif text == "₿ رمزارز ₿":
+        response = requests.post(config["api_currency_digi"])
+
+        popular_currencies = [
+            "btc",   # بیت‌کوین
+            "eth",   # اتریوم
+            "bnb",   # بایننس کوین
+            "xrp",   # ریپل
+            "ada",   # کاردانو
+            "sol",   # سولانا
+            "doge",  # دوج‌کوین
+            "ltc",   # لایت‌کوین
+            "shib",  # شیبا اینو
+            "trx",   # ترون
+            "etc",   # اتریوم کلاسیک
+        ]
+
+        if response.status_code == 200:
+            keyboard = [
+                [InlineKeyboardButton("قیمت ارز", callback_data="a"),
+                InlineKeyboardButton("نام ارز", callback_data="a")]
+            ]
+
+            data = response.json()
+
+            markets = data.get("markets", {}).get("binance", {})
+
+            for currency in popular_currencies:
+                if currency in markets:
+                    name_button = InlineKeyboardButton(currency,  callback_data="a")
+                    price_button = InlineKeyboardButton(markets[currency],  callback_data="a")
+                else:
+                    name_button = InlineKeyboardButton(currency,  callback_data="a")
+                    price_button = InlineKeyboardButton("یافت نشد",  callback_data="a")
+
+                keyboard.append([price_button, name_button])
+
+            inline_markup = InlineKeyboardMarkup(keyboard)
+
+            await context.bot.send_message(
+                chat_id=user_id,
+                text="₿ لیست قیمت‌ رمزارز ها:",
+                reply_to_message_id=update.effective_message.id,
+                reply_markup=inline_markup
+            )
+            return
+        else:
+            keyboard = [
+                [KeyboardButton("🔙 بازگشت 🔙")]
+            ]
+
+            await context.bot.send_message(
+                chat_id=user_id,
+                text="⚠ مشکلی پیش آمده! لطفا به پشتیبانی اطلاع دهید...",
+                reply_to_message_id=update.effective_message.id,
+                reply_markup=inline_markup
+            )
+            return
 
     elif text == "❌ لغو ❌":
         if "spotify_step" in context.user_data:
@@ -621,6 +767,11 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
     elif query.data == "confirm_download_insta_post":
         post_url = context.user_data.get("insta_post_url")
         post_folder = None
+
+        await query.message.edit_text(
+            text="📩 در حال دانلود پست...",
+            reply_markup=None
+        )
 
         keyboard = [
             [KeyboardButton("🔙 بازگشت 🔙")]
