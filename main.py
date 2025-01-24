@@ -696,19 +696,25 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
 
                         return
             
+                caption = (
+                    f'<a href="https://t.me/Megaa_helperbot">@megaa_helperbot</a> | <a href="{context.user_data.get("spotify_url")}">Music link</a>'
+                )
+
                 #send to channel
                 bot = context.bot
                 with open(file_path, 'rb') as audio_file:
                     await bot.send_audio(
                         chat_id=config["spotify_channel"],
-                        audio=audio_file
+                        audio=audio_file,
+                        caption=caption
                     )
 
                 #send to user
                 with open(file_path, 'rb') as audio_file:
                     await context.bot.send_audio(
                         chat_id=user_id,
-                        audio=audio_file
+                        audio=audio_file,
+                        caption=caption
                     )
 
                 os.remove(file_path)
