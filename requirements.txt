@@ -4,3 +4,4 @@ spotipy
 pytz
 instaloader
 fuzzywuzzy
+python-Levenshtein
