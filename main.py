@@ -37,6 +37,8 @@ loader = instaloader.Instaloader(
     save_metadata=config["insta_loader_opt"]["save_metadata"]
 )
 
+print(config["spotify_channel"])
+
 user_support_progress = {}
 
 # --- DataBase ---
@@ -664,6 +666,7 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
                 file_path = download_from_youtube(query_text)
                 
                 await context.bot.send_message(
+                    chat_id=user_id,
                     text="✅ آهنگ با موفقیت دانلود شد👌\nدر حال ارسال فایل..."
                 )
                 
@@ -684,8 +687,13 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
                             "⚠ سکه های شما کافی نمیباشد!\nشما میتوانید از طریق بخش افزایش سکه تعداد سکه های خود را افزایش دهید...",
                             reply_markup=inline_markup
                         )
-                        cursor.execute(f"DELETE FROM download_spotify_progress WHERE user_id = ?", (user_id,))
-                        conn.commit()
+                        if "spotify_step" in context.user_data:
+                            del context.user_data["spotify_step"]
+                        if "spotify_query" in context.user_data:
+                            del context.user_data["spotify_query"]
+                        if "spotify_url" in context.user_data:
+                            del context.user_data["spotify_url"]
+
                         return
             
                 #send to channel
