@@ -226,6 +226,19 @@ async def start(update: Update, context: CallbackContext) -> None:
         [KeyboardButton("📊 حساب کاربری 📊"), KeyboardButton("💵 قیمت ارز 💵")],
         [KeyboardButton("💰 افزایش سکه 💰"), KeyboardButton("👨‍💻راهنما و پشتیبانی 👨‍💻")]
     ]
+
+    # check user
+    with sqlite3.connect("data.db") as conn:
+        cursor  = conn.cursor()
+        cursor.execute("SELECT admin_type FROM users WHERE user_id = ?", (user_id,))
+        admin_type = cursor.fetchone()
+
+    if int(admin_type[0]) == 1:
+        keyboard.extend([
+            [KeyboardButton("🛑 پنل ادمین 🛑")],
+            [KeyboardButton("اطلاعات کاربر"), KeyboardButton("افزایش سکه")]
+        ])
+
     inline_markup = ReplyKeyboardMarkup(keyboard)
 
     await context.bot.send_message(
@@ -278,7 +291,7 @@ async def echo(update: Update, context: CallbackContext) -> None:
         )
         return
     
-
+    
     if text == "🔙 بازگشت 🔙":
         await start(update, context)
         return
@@ -419,7 +432,8 @@ async def echo(update: Update, context: CallbackContext) -> None:
 
     elif text == "📥 دانـلودر 📥":
         keyboard = [
-            [KeyboardButton("📸 استوری اینستاگرام 📸"), KeyboardButton("🔴 پست اینستاگرام 🔴")],
+            # [KeyboardButton("📸 استوری اینستاگرام 📸"), KeyboardButton("🔴 پست اینستاگرام 🔴")],
+            [KeyboardButton("🔴 پست اینستاگرام 🔴")],
             [KeyboardButton("🟠 ساوند کلاود 🟠"), KeyboardButton("🟢 اسپاتیفای 🟢")],
             [KeyboardButton("🔙 بازگشت 🔙")]
         ]
@@ -465,21 +479,21 @@ async def echo(update: Update, context: CallbackContext) -> None:
         context.user_data["insta_post_step"] = 1
         return
 
-    elif text == "📸 استوری اینستاگرام 📸":
-        keyboard = [
-            [KeyboardButton("🔙 بازگشت 🔙")]
-        ]
-        inline_markup = ReplyKeyboardMarkup(keyboard)
+    # elif text == "📸 استوری اینستاگرام 📸":
+    #     keyboard = [
+    #         [KeyboardButton("🔙 بازگشت 🔙")]
+    #     ]
+    #     inline_markup = ReplyKeyboardMarkup(keyboard)
 
-        await context.bot.send_message(
-            chat_id=user_id,
-            text="💠نام کاربری شخص مورد نظر را وارد کنید:",
-            reply_to_message_id=update.effective_message.id,
-            reply_markup=inline_markup
-        )
+    #     await context.bot.send_message(
+    #         chat_id=user_id,
+    #         text="💠نام کاربری شخص مورد نظر را وارد کنید:",
+    #         reply_to_message_id=update.effective_message.id,
+    #         reply_markup=inline_markup
+    #     )
 
-        context.user_data["insta_story_step"] = 1
-        return
+    #     context.user_data["insta_story_step"] = 1
+    #     return
 
     elif text == "🟠 ساوند کلاود 🟠":
         keyboard = [
@@ -664,10 +678,53 @@ async def echo(update: Update, context: CallbackContext) -> None:
         if "insta_post_step" in context.user_data:
             del context.user_data["insta_post_step"]
 
+        if "soundcloud_step" in context.user_data:
+            del context.user_data["soundcloud_step"]
+        if "soundcloud_query" in context.user_data:
+            del context.user_data["soundcloud_query"]
+        if "soundcloud_url" in context.user_data:
+            del context.user_data["soundcloud_url"]
+
+        if "coin_add_step" in context.user_data:
+            del context.user_data["coin_add_step"]
+        if "user_id_dest" in context.user_data:
+            del context.user_data["user_id_dest"]
+        if "num_coins" in context.user_data:
+            del context.user_data["num_coins"]
+
         if user_id in user_support_progress:
             del user_support_progress[user_id]
 
         await start(update, context)
+        return
+    
+    elif text == "🛑 پنل ادمین 🛑":
+        None
+        return
+
+    #admin
+    elif text == "افزایش سکه":
+        #check admin
+        with sqlite3.connect("data.db") as conn:
+            cursor  = conn.cursor()
+            cursor.execute("SELECT admin_type FROM users WHERE user_id = ?", (user_id,))
+            admin_type = cursor.fetchone()
+
+        if int(admin_type[0]) != 1:
+            None
+
+        keyboard = [
+            [KeyboardButton("❌ لغو ❌")]
+        ]
+        inline_markup = ReplyKeyboardMarkup(keyboard)
+        
+        await context.bot.send_message(
+            chat_id=user_id,
+            text="🤖 شناسه عددی کاربر مد نظر را وارد کنید:",
+            reply_to_message_id=update.effective_message.id,
+            reply_markup=inline_markup
+        )
+        context.user_data["coin_add_step"] = 1
         return
 
     else:
@@ -784,38 +841,38 @@ async def echo(update: Update, context: CallbackContext) -> None:
                 if "insta_post_step" in context.user_data:
                     del context.user_data["insta_post_step"]
 
-        elif "insta_story_step" in context.user_data:
-            username = update.message.text.strip()
+        # elif "insta_story_step" in context.user_data:
+        #     username = update.message.text.strip()
 
-            try:
-                profile = instaloader.Profile.from_username(loader.context, username)
+        #     try:
+        #         profile = instaloader.Profile.from_username(loader.context, username)
 
-                stories = loader.get_stories([profile.userid])
+        #         stories = loader.get_stories([profile.userid])
 
-                if not stories:
-                    await update.message.reply_text("⚠ هیچ استوری فعالی برای این کاربر یافت نشد!")
-                    return
+        #         if not stories:
+        #             await update.message.reply_text("⚠ هیچ استوری فعالی برای این کاربر یافت نشد!")
+        #             return
 
-                context.user_data["insta_story_username"] = username
+        #         context.user_data["insta_story_username"] = username
 
-                keyboard = [
-                    [InlineKeyboardButton("✅ بله", callback_data="confirm_download_insta_story"), InlineKeyboardButton("❌ خیر", callback_data="cancel_download_insta_story")]
-                ]
-                reply_markup = InlineKeyboardMarkup(keyboard)
+        #         keyboard = [
+        #             [InlineKeyboardButton("✅ بله", callback_data="confirm_download_insta_story"), InlineKeyboardButton("❌ خیر", callback_data="cancel_download_insta_story")]
+        #         ]
+        #         reply_markup = InlineKeyboardMarkup(keyboard)
 
-                await update.message.reply_text(
-                    f"💠آیا می‌خواهید استوری‌های کاربر {username} را دانلود کنید؟ (2 سکه کسر می‌شود)",
-                    reply_markup=reply_markup,
-                )
-                return
+        #         await update.message.reply_text(
+        #             f"💠آیا می‌خواهید استوری‌های کاربر {username} را دانلود کنید؟ (2 سکه کسر می‌شود)",
+        #             reply_markup=reply_markup,
+        #         )
+        #         return
 
-            except Exception as e:
-                await update.message.reply_text(f"خطا: {e}")
+        #     except Exception as e:
+        #         await update.message.reply_text(f"خطا: {e}")
 
-                if "insta_story_username" in context.user_data:
-                    del context.user_data["insta_story_username"]
-                if "insta_story_step" in context.user_data:
-                    del context.user_data["insta_story_step"]
+        #         if "insta_story_username" in context.user_data:
+        #             del context.user_data["insta_story_username"]
+        #         if "insta_story_step" in context.user_data:
+        #             del context.user_data["insta_story_step"]
 
         elif "soundcloud_step" in context.user_data:
             if re.match(soudncloud_pattern, text) is not None:
@@ -871,6 +928,123 @@ async def echo(update: Update, context: CallbackContext) -> None:
                     del context.user_data["soundcloud_url"]
 
                 return
+
+        elif context.user_data.get("coin_add_step") == 1:
+            user_id_dest = update.message.text
+
+            keyboard = [
+                [KeyboardButton("❌ لغو ❌")]
+            ]
+            inline_markup = ReplyKeyboardMarkup(keyboard)
+
+            if not str(user_id_dest).isdigit():                
+                await context.bot.send_message(
+                    chat_id=user_id,
+                    text="❌ یوزر آیدی وارد شده اشتباه است!",
+                    reply_to_message_id=update.effective_message.id,
+                    reply_markup=inline_markup
+                )
+                if "coin_add_step" in context.user_data:
+                    context.user_data["coin_add_step"]
+                return
+
+            if len(str(user_id_dest)) < 6:
+                await context.bot.send_message(
+                    chat_id=user_id,
+                    text="❌ یوزر آیدی وارد شده معتبر نیست!",
+                    reply_to_message_id=update.effective_message.id,
+                    reply_markup=inline_markup
+                )
+                if "coin_add_step" in context.user_data:
+                    context.user_data["coin_add_step"]
+                return
+
+            with sqlite3.connect("data.db") as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT COUNT(*) FROM users WHERE user_id = ?", (user_id_dest,))
+                user_exists = cursor.fetchone()[0]
+
+            if user_exists == 0:
+                await context.bot.send_message(
+                    chat_id=user_id,
+                    text="❌ این کاربر در ربات ثبت نام نکرده است!",
+                    reply_to_message_id=update.effective_message.id,
+                    reply_markup=inline_markup
+                )
+                if "coin_add_step" in context.user_data:
+                    context.user_data["coin_add_step"]
+                return
+
+            await context.bot.send_message(
+                chat_id=user_id,
+                text="🤖 تعداد سکه های مدنظر را وارد کنید:",
+                reply_to_message_id=update.effective_message.id,
+                reply_markup=inline_markup
+            )
+            context.user_data["user_id_dest"] = user_id_dest
+            context.user_data["coin_add_step"] = 2
+            return
+
+        elif context.user_data.get("coin_add_step") == 2:
+            num_coins = update.message.text
+
+            keyboard = [
+                [KeyboardButton("❌ لغو ❌")]
+            ]
+            inline_markup = ReplyKeyboardMarkup(keyboard)
+
+            if not num_coins.isdigit():
+                await context.bot.send_message(
+                    chat_id=user_id,
+                    text="❌ مقدار وارد شده اشتباه است!",
+                    reply_to_message_id=update.effective_message.id,
+                    reply_markup=inline_markup
+                )
+                if "coin_add_step" in context.user_data:
+                    context.user_data["coin_add_step"]
+                if "user_id_dest" in context.user_data:
+                    context.user_data["user_id_dest"]
+                return
+
+            num_coins = int(num_coins)
+
+            if num_coins < 1:
+                await context.bot.send_message(
+                    chat_id=user_id,
+                    text="❌ مقدار وارد شده اشتباه است!",
+                    reply_to_message_id=update.effective_message.id,
+                    reply_markup=inline_markup
+                )
+                if "coin_add_step" in context.user_data:
+                    context.user_data["coin_add_step"]
+                if "user_id_dest" in context.user_data:
+                    context.user_data["user_id_dest"]
+                return
+
+            keyboard = [
+                [InlineKeyboardButton("✅ بله", callback_data="confirm_coin_add")],
+                [InlineKeyboardButton("❌ خیر", callback_data="cancel_coin_add")]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            with sqlite3.connect("data.db") as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT * FROM users WHERE user_id = ?", (context.user_data.get("user_id_dest"),))
+                user_dest_data = cursor.fetchone()
+                user_dest_data = list(user_dest_data)
+
+            if user_dest_data[2] is not None:
+                username_dest = f"@{user_dest_data[2]}"
+            else:
+                username_dest = "No_username"
+
+            await context.bot.send_message(
+                chat_id=user_id,
+                text=f"⚠ شما مطمئن هستید میخواهید مقدار {num_coins} سکه به سکه های کاربر {user_dest_data[1]} با آیدی {username_dest} و یوزر آیدی {user_dest_data[0]} اضافه کنید؟",
+                reply_markup=reply_markup
+            )
+            context.user_data["num_coins"] = num_coins
+            return
 
         else:
             keyboard = [
@@ -1194,108 +1368,108 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
                 del context.user_data["insta_post_step"]
             return
 
-    elif query.data == "confirm_download_insta_story":
-        username = context.user_data.get("insta_story_username")
-        story_folder = None
+    # elif query.data == "confirm_download_insta_story":
+    #     username = context.user_data.get("insta_story_username")
+    #     story_folder = None
 
-        await query.message.edit_text(
-            text="📩 در حال دانلود استوری‌ها...",
-            reply_markup=None
-        )
+    #     await query.message.edit_text(
+    #         text="📩 در حال دانلود استوری‌ها...",
+    #         reply_markup=None
+    #     )
 
-        keyboard = [
-            [KeyboardButton("🔙 بازگشت 🔙")]
-        ]
-        inline_markup = ReplyKeyboardMarkup(keyboard)
+    #     keyboard = [
+    #         [KeyboardButton("🔙 بازگشت 🔙")]
+    #     ]
+    #     inline_markup = ReplyKeyboardMarkup(keyboard)
 
-        try:
-            loader.context.user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-            profile = instaloader.Profile.from_username(loader.context, username)
+    #     try:
+    #         loader.context.user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+    #         profile = instaloader.Profile.from_username(loader.context, username)
 
-            # دریافت استوری‌ها
-            stories = loader.get_stories([profile.userid])
+    #         # دریافت استوری‌ها
+    #         stories = loader.get_stories([profile.userid])
 
-            if not stories:
-                await update.callback_query.edit_message_text(
-                    "⚠ هیچ استوری فعالی برای این کاربر یافت نشد.",
-                    reply_markup=inline_markup
-                )
-                return
+    #         if not stories:
+    #             await update.callback_query.edit_message_text(
+    #                 "⚠ هیچ استوری فعالی برای این کاربر یافت نشد.",
+    #                 reply_markup=inline_markup
+    #             )
+    #             return
 
-            # ایجاد پوشه برای ذخیره استوری‌ها
-            story_folder = os.path.join(os.getcwd(), f"stories_{username}")
-            if not os.path.exists(story_folder):
-                os.makedirs(story_folder)
+    #         # ایجاد پوشه برای ذخیره استوری‌ها
+    #         story_folder = os.path.join(os.getcwd(), f"stories_{username}")
+    #         if not os.path.exists(story_folder):
+    #             os.makedirs(story_folder)
 
-            # دانلود استوری‌ها
-            for story in stories:
-                loader.download_storyitem(story, target=story_folder)
+    #         # دانلود استوری‌ها
+    #         for story in stories:
+    #             loader.download_storyitem(story, target=story_folder)
 
-            # بررسی فایل‌های دانلود شده
-            downloaded_files = glob.glob(os.path.join(story_folder, "*"))
-            if not downloaded_files:
-                await update.callback_query.edit_message_text(
-                    "⚠خطا: فایل‌ها دانلود نشدند. لطفا دوباره مراحل را طی کنید...",
-                    reply_markup=inline_markup
-                )
-                return
+    #         # بررسی فایل‌های دانلود شده
+    #         downloaded_files = glob.glob(os.path.join(story_folder, "*"))
+    #         if not downloaded_files:
+    #             await update.callback_query.edit_message_text(
+    #                 "⚠خطا: فایل‌ها دانلود نشدند. لطفا دوباره مراحل را طی کنید...",
+    #                 reply_markup=inline_markup
+    #             )
+    #             return
 
-            # کسر سکه‌ها
-            with sqlite3.connect("data.db") as conn:
-                cursor = conn.cursor()
-                cursor.execute('SELECT coins FROM users WHERE user_id = ?', (user_id,))
-                old_coins = cursor.fetchone()
+    #         # کسر سکه‌ها
+    #         with sqlite3.connect("data.db") as conn:
+    #             cursor = conn.cursor()
+    #             cursor.execute('SELECT coins FROM users WHERE user_id = ?', (user_id,))
+    #             old_coins = cursor.fetchone()
 
-                if old_coins[0] - 2 >= 0:
-                    new_coins = old_coins[0] - 2
-                    cursor.execute('UPDATE users SET coins = ? WHERE user_id = ?', (new_coins, user_id))
-                    conn.commit()
-                else:
-                    await update.callback_query.edit_message_text(
-                        "⚠ سکه‌های شما کافی نمی‌باشد!",
-                        reply_markup=inline_markup
-                    )
-                    return
+    #             if old_coins[0] - 2 >= 0:
+    #                 new_coins = old_coins[0] - 2
+    #                 cursor.execute('UPDATE users SET coins = ? WHERE user_id = ?', (new_coins, user_id))
+    #                 conn.commit()
+    #             else:
+    #                 await update.callback_query.edit_message_text(
+    #                     "⚠ سکه‌های شما کافی نمی‌باشد!",
+    #                     reply_markup=inline_markup
+    #                 )
+    #                 return
 
-            # ارسال فایل‌ها به کاربر
-            for file_path in downloaded_files:
-                if file_path.endswith(".mp4"):
-                    with open(file_path, "rb") as media_file:
-                        await update.callback_query.message.reply_video(
-                            video=media_file,
-                            caption=f"استوری کاربر {username}"
-                        )
-                elif file_path.endswith((".jpg", ".png")):
-                    with open(file_path, "rb") as media_file:
-                        await update.callback_query.message.reply_photo(
-                            photo=media_file,
-                            caption=f"استوری کاربر {username}"
-                        )
+    #         # ارسال فایل‌ها به کاربر
+    #         for file_path in downloaded_files:
+    #             if file_path.endswith(".mp4"):
+    #                 with open(file_path, "rb") as media_file:
+    #                     await update.callback_query.message.reply_video(
+    #                         video=media_file,
+    #                         caption=f"استوری کاربر {username}"
+    #                     )
+    #             elif file_path.endswith((".jpg", ".png")):
+    #                 with open(file_path, "rb") as media_file:
+    #                     await update.callback_query.message.reply_photo(
+    #                         photo=media_file,
+    #                         caption=f"استوری کاربر {username}"
+    #                     )
 
-            # پاک کردن فایل‌های موقت
-            shutil.rmtree(story_folder)
+    #         # پاک کردن فایل‌های موقت
+    #         shutil.rmtree(story_folder)
 
-            # پاک کردن داده‌های context
-            if "insta_story_username" in context.user_data:
-                del context.user_data["insta_story_username"]
-            if "insta_story_step" in context.user_data:
-                del context.user_data["insta_story_step"]
+    #         # پاک کردن داده‌های context
+    #         if "insta_story_username" in context.user_data:
+    #             del context.user_data["insta_story_username"]
+    #         if "insta_story_step" in context.user_data:
+    #             del context.user_data["insta_story_step"]
 
-        except Exception as e:
-            await update.callback_query.edit_message_text(f"⚠ خطا:\n{e}")
-            if story_folder and os.path.exists(story_folder):
-                shutil.rmtree(story_folder)
+    #     except Exception as e:
+    #         await update.callback_query.edit_message_text(f"⚠ خطا:\n{e}")
+    #         if story_folder and os.path.exists(story_folder):
+    #             shutil.rmtree(story_folder)
 
-    elif query.data == "cancel_download_insta_story":
-        if "insta_story_username" in context.user_data:
-            del context.user_data["insta_story_username"]
-        if "insta_story_step" in context.user_data:
-            del context.user_data["insta_story_step"]
+    # elif query.data == "cancel_download_insta_story":
+    #     if "insta_story_username" in context.user_data:
+    #         del context.user_data["insta_story_username"]
+    #     if "insta_story_step" in context.user_data:
+    #         del context.user_data["insta_story_step"]
 
-        await query.edit_message_text(
-            "درخواست شما با موفقیت لغو شد ✅",
-        )
-        return
+    #     await query.edit_message_text(
+    #         "درخواست شما با موفقیت لغو شد ✅",
+    #     )
+    #     return
 
     elif query.data == "confirm_download_soundcloud":
         if "soundcloud_step" in context.user_data:
@@ -1429,6 +1603,95 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
             if "soundcloud_url" in context.user_data:
                 del context.user_data["soundcloud_url"]
             return       
+
+    elif query.data == "confirm_coin_add":
+        if "coin_add_step" in context.user_data:
+            keyboard = [
+                [KeyboardButton("🔙 بازگشت 🔙")]
+            ]
+            inline_markup = ReplyKeyboardMarkup(keyboard)
+
+            # add coin for the user dest
+            with sqlite3.connect("data.db") as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT coins FROM users WHERE user_id = ?",(context.user_data.get("user_id_dest"),))
+                old_coins = cursor.fetchone()
+
+                new_coins = old_coins[0] + context.user_data.get('num_coins')
+
+                cursor.execute("UPDATE users SET coins = ? WHERE user_id = ?", (new_coins, context.user_data.get("user_id_dest"),))
+                conn.commit()
+            
+            # send message for the user dest
+            await context.bot.send_message(
+                chat_id=context.user_data.get("user_id_dest"),
+                text=f"🎉 ادمین برای شما {context.user_data.get("num_coins")} سکه شارژ کرد!",
+            )
+
+            await context.bot.send_message(
+                chat_id=user_id,
+                text="✅ سکه ها با موفقیت برای کاربر مدنظر شارژ شد.",
+                reply_to_message_id=update.effective_message.id,
+                reply_markup=inline_markup
+            )
+
+            if "coin_add_step" in context.user_data:
+                del context.user_data["coin_add_step"]
+            if "user_id_dest" in context.user_data:
+                del context.user_data["user_id_dest"]
+            if "num_coins" in context.user_data:
+                del context.user_data["num_coins"]
+            return  
+        else:
+            await context.bot.send_message(
+                chat_id=user_id,
+                text="⚠ این درخواست قبلاً پردازش شده است و دیگر معتبر نیست. لطفاً دوباره مراحل را طی کنید...",
+                reply_to_message_id=update.effective_message.id
+            )
+
+            if "coin_add_step" in context.user_data:
+                del context.user_data["coin_add_step"]
+            if "user_id_dest" in context.user_data:
+                del context.user_data["user_id_dest"]
+            if "num_coins" in context.user_data:
+                del context.user_data["num_coins"]
+            return  
+
+    elif query.data == "cancel_coin_add":
+        if "coin_add_step" in context.user_data:
+            keyboard = [
+                [KeyboardButton("🔙 بازگشت 🔙")]
+            ]
+            inline_markup = ReplyKeyboardMarkup(keyboard)
+
+            await context.bot.send_message(
+                chat_id=user_id,
+                text="✅ درخواست با موفقیت لغو شد.",
+                reply_to_message_id=update.effective_message.id,
+                reply_markup=inline_markup
+            )
+
+            if "coin_add_step" in context.user_data:
+                del context.user_data["coin_add_step"]
+            if "user_id_dest" in context.user_data:
+                del context.user_data["user_id_dest"]
+            if "num_coins" in context.user_data:
+                del context.user_data["num_coins"]
+            return  
+        else:
+            await context.bot.send_message(
+                chat_id=user_id,
+                text="⚠ این درخواست قبلاً پردازش شده است و دیگر معتبر نیست. لطفاً دوباره مراحل را طی کنید...",
+                reply_to_message_id=update.effective_message.id
+            )
+
+            if "coin_add_step" in context.user_data:
+                del context.user_data["coin_add_step"]
+            if "user_id_dest" in context.user_data:
+                del context.user_data["user_id_dest"]
+            if "num_coins" in context.user_data:
+                del context.user_data["num_coins"]
+            return  
 
 
 def main():
