@@ -739,6 +739,7 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
                         conn.commit()
                     else:
                         await context.bot.send_message(
+                            chat_id=user_id,
                             text="⚠ سکه های شما کافی نمیباشد!\nشما میتوانید از طریق بخش افزایش سکه تعداد سکه های خود را افزایش دهید...",
                         )
                         if "spotify_step" in context.user_data:
