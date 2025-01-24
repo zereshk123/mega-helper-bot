@@ -55,6 +55,23 @@ def auth_db():
         conn.commit()
     print("[BOT] database checked✅")
 
+def get_soundcloud_track_info(soundcloud_url):
+    ydl_opts = {
+        'quiet': True,
+        'extract_flat': True,
+    }
+
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info_dict = ydl.extract_info(soundcloud_url, download=False)
+        
+        track_name = info_dict.get('title', 'Unknown Title')
+        artist_name = info_dict.get('uploader', 'Unknown Artist')
+        album_name = info_dict.get('album', 'Unknown Album')
+        release_date = info_dict.get('release_date', 'Unknown Date')
+        cover_image = info_dict.get('thumbnail', None)
+
+        return track_name, artist_name, album_name, release_date, cover_image
+
 def get_spotify_track_info(spotify_url):
     sp = spotipy.Spotify(auth_manager=SpotifyClientCredentials(client_id=SPOTIPY_CLIENT_ID, client_secret=SPOTIPY_CLIENT_SECRET))
     track_id = spotify_url.split("/")[-1].split("?")[0]
@@ -67,7 +84,7 @@ def get_spotify_track_info(spotify_url):
     
     return track_name, artist_name, album_name, release_date, cover_image
 
-def download_from_youtube(query, output_path="downloads/"):
+def download_from_spotify(query, output_path="downloads/"):
     if not os.path.exists(output_path):
         os.makedirs(output_path)
 
@@ -101,6 +118,49 @@ def download_from_youtube(query, output_path="downloads/"):
             else:
                 raise Exception("⚠متاسفیم... آهنگ مورد نظر شما یافت نشد :(")
         
+        except Exception as e:
+            raise Exception(f"خطا در دانلود: {str(e)}")
+
+def download_from_soundcloud(query, output_path="downloads/"):
+    if not os.path.exists(output_path):
+        os.makedirs(output_path)
+
+    options = {
+        'format': 'bestaudio/best',
+        'outtmpl': f'{output_path}%(title)s.%(ext)s',
+        'postprocessors': [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'mp3',
+            'preferredquality': '192',
+        }],
+        'cookies': 'cookies.txt',
+        'quiet': False
+    }
+
+    with yt_dlp.YoutubeDL(options) as ydl:
+        try:
+            print(f"\n\n{query}\n\n")
+            print(f"🔍 جستجو در یوتیوب: {query}")
+
+            search_results = ydl.extract_info(f"ytsearch:{query}", download=False)
+
+            if 'entries' in search_results and len(search_results['entries']) > 0:
+                best_match = None
+                for entry in search_results['entries']:
+                    title = entry['title'].lower()
+                    if any(word in title for word in query.lower().split()):
+                        best_match = entry
+                        break
+
+                if best_match:
+                    download_path = f"{output_path}{best_match['title']}.mp3"
+                    ydl.download([best_match['webpage_url']])
+                    return download_path
+                else:
+                    raise Exception("⚠ متاسفانه آهنگ مد نظر شما یافت نشد :(")
+            else:
+                raise Exception("⚠متاسفیم... آهنگ مورد نظر شما یافت نشد :(")
+
         except Exception as e:
             raise Exception(f"خطا در دانلود: {str(e)}")
 
@@ -186,8 +246,10 @@ async def help(update: Update, context: CallbackContext) -> None:
 async def echo(update: Update, context: CallbackContext) -> None:
     user_id = str(update.effective_user.id)
     text = update.message.text
-    pattern = r'https?://open\.spotify\.com/(track|album|playlist|artist)/[a-zA-Z0-9]+'
-
+    spotify_pattern = r'https?://open\.spotify\.com/(track|album|playlist|artist)/[a-zA-Z0-9]+'
+    soudncloud_pattern = r'https?://(www\.)?soundcloud\.com/[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+(\?.*)?'
+    
+    # check channels
     required_channels = config["channels"]
     not_joined_channels = []
 
@@ -214,6 +276,7 @@ async def echo(update: Update, context: CallbackContext) -> None:
         )
         return
     
+
     if text == "🔙 بازگشت 🔙":
         await start(update, context)
         return
@@ -355,6 +418,7 @@ async def echo(update: Update, context: CallbackContext) -> None:
     elif text == "📥 دانـلودر 📥":
         keyboard = [
             [KeyboardButton("🟢 اسپاتیفای 🟢"), KeyboardButton("🔴 پست اینستاگرام 🔴")],
+            [KeyboardButton("🟠 ساوند کلاود 🟠")],
             [KeyboardButton("🔙 بازگشت 🔙")]
         ]
         inline_markup = ReplyKeyboardMarkup(keyboard)
@@ -381,11 +445,6 @@ async def echo(update: Update, context: CallbackContext) -> None:
         )
 
         context.user_data["spotify_step"] = 1
-
-        # with sqlite3.connect("data.db") as conn:
-        #     cursor = conn.cursor()
-        #     cursor.execute('INSERT INTO download_spotify_progress (user_id, step) VALUES (?, ?) ON CONFLICT(user_id) DO UPDATE SET step=?', (user_id, 1, 1))
-        #     conn.commit()
         return
 
     elif text == "🔴 پست اینستاگرام 🔴":
@@ -402,6 +461,22 @@ async def echo(update: Update, context: CallbackContext) -> None:
         )    
 
         context.user_data["insta_post_step"] = 1
+        return
+
+    elif text == "🟠 ساوند کلاود 🟠":
+        keyboard = [
+            [KeyboardButton("🔙 بازگشت 🔙")]
+        ]
+        inline_markup = ReplyKeyboardMarkup(keyboard)
+
+        await context.bot.send_message(
+            chat_id=user_id,
+            text="💠لینک آهنگ مد نظر خود را بفرستید:",
+            reply_to_message_id=update.effective_message.id,
+            reply_markup=inline_markup
+        )
+
+        context.user_data["soundcloud_step"] = 1
         return
 
     elif text == "💵 قیمت ارز 💵":
@@ -580,6 +655,7 @@ async def echo(update: Update, context: CallbackContext) -> None:
     else:
         insta_post_step = context.user_data.get("insta_post_step")
         spotify_step = context.user_data.get("spotify_step")
+        soundcloud_step = context.user_data.get("soundcloud_step")
 
         if user_id in user_support_progress:
             inline_keyboard = [
@@ -613,7 +689,7 @@ async def echo(update: Update, context: CallbackContext) -> None:
             return
 
         elif spotify_step:
-            if re.match(pattern, text) is not None:
+            if re.match(spotify_pattern, text) is not None:
                 spotify_url = update.message.text.strip()
                 await update.message.reply_text("💠 در حال پردازش لینک...")
                 
@@ -666,7 +742,7 @@ async def echo(update: Update, context: CallbackContext) -> None:
                     del context.user_data["spotify_url"]
 
                 return
-        
+
         elif insta_post_step:
             post_url = update.message.text
 
@@ -693,7 +769,62 @@ async def echo(update: Update, context: CallbackContext) -> None:
                     del context.user_data["insta_post_url"]
                 if "insta_post_step" in context.user_data:
                     del context.user_data["insta_post_step"]
-        
+
+        elif soundcloud_step:
+            if re.match(soudncloud_pattern, text) is not None:
+                soundcloud_url = update.message.text.strip()
+                await update.message.reply_text("💠 در حال پردازش لینک...")
+                
+                track_name, artist_name, album_name, release_date, cover_image = get_soundcloud_track_info(soundcloud_url)
+                query = f"{track_name} {artist_name}"
+
+                context.user_data["soundcloud_step"] = 2
+                context.user_data["soundcloud_query"] = query
+                context.user_data["soundcloud_url"] = soundcloud_url
+                
+                caption = (
+                    f"🎵 آهنگ: {track_name}\n"
+                    f"🎤 هنرمند: {artist_name}\n"
+                    f"💿 آلبوم: {album_name}\n"
+                    f'🔗 <a href="{soundcloud_url}">لینک آهنگ</a>\n'
+                    f"📅 تاریخ انتشار: {release_date}\n\n"
+                    "💠در صورت دانلود آهنگ 2 سکه از حساب شما کم میشود! آیا می‌خواهید این آهنگ را دانلود کنید؟"
+                )
+
+                keyboard = [
+                    [InlineKeyboardButton("✅ بله", callback_data="confirm_download_soundcloud")],
+                    [InlineKeyboardButton("❌ خیر", callback_data="cancel_download_soundcloud")]
+                ]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+                
+                await update.message.reply_photo(
+                    photo=cover_image,
+                    caption=caption,
+                    reply_markup=reply_markup,
+                    parse_mode="HTML"
+                )
+            else:
+                keyboard = [
+                    [KeyboardButton("🔙 بازگشت 🔙")]
+                ]
+                inline_markup = ReplyKeyboardMarkup(keyboard)
+
+                await context.bot.send_message(
+                    chat_id=user_id,
+                    text="⚠ لینک ارسال شده اشتباه است! لطفا دوباره مراحل را طی کنید...",
+                    reply_to_message_id=update.effective_message.id,
+                    reply_markup=inline_markup
+                )
+
+                if "soundcloud_step" in context.user_data:
+                    del context.user_data["soundcloud_step"]
+                if "soundcloud_query" in context.user_data:
+                    del context.user_data["soundcloud_query"]
+                if "soundcloud_url" in context.user_data:
+                    del context.user_data["soundcloud_url"]
+
+                return
+
         else:
             keyboard = [
                 [KeyboardButton("🔙 بازگشت 🔙")]
@@ -714,6 +845,7 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
     await query.answer()
 
     spotify_step = context.user_data.get("spotify_step")
+    soundcloud_step = context.user_data.get("soundcloud_step")
 
     if query.data == "confirm_download_spotify":
         if spotify_step:
@@ -723,7 +855,7 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
 
             try:
                 query_text = context.user_data.get("spotify_query")
-                file_path = download_from_youtube(query_text)
+                file_path = download_from_spotify(query_text)
                 
                 # delete the coin in account 
                 with sqlite3.connect("data.db") as conn:
@@ -984,6 +1116,140 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
             "درخواست شما با موفقیت لغو شد ✅",
         )
         return
+
+    if query.data == "confirm_download_soundcloud":
+        if soundcloud_step:
+            await query.edit_message_caption(
+                caption="🎧 در حال دانلود آهنگ..."
+            )
+
+            try:
+                soundcloud_url = context.user_data.get("soundcloud_query")
+                file_path = download_from_soundcloud(soundcloud_url)
+                
+                # delete the coin in account 
+                with sqlite3.connect("data.db") as conn:
+                    cursor = conn.cursor()
+                    #get the number of coins
+                    cursor.execute('SELECT coins FROM users WHERE user_id = ?', (user_id,))
+                    old_coins = cursor.fetchone()
+
+                    if old_coins[0]-2 >= 0:
+                        new_coins = old_coins[0] - 2
+                        #set the new number of coins
+                        cursor.execute('UPDATE users SET coins = ? WHERE user_id = ?', (new_coins ,user_id,))
+                        conn.commit()
+                    else:
+                        await context.bot.send_message(
+                            chat_id=user_id,
+                            text="⚠ سکه های شما کافی نمیباشد!\nشما میتوانید از طریق بخش افزایش سکه تعداد سکه های خود را افزایش دهید...",
+                        )
+                        if "spotify_step" in context.user_data:
+                            del context.user_data["spotify_step"]
+                        if "spotify_query" in context.user_data:
+                            del context.user_data["spotify_query"]
+                        if "spotify_url" in context.user_data:
+                            del context.user_data["spotify_url"]
+
+                        return
+            
+                await context.bot.send_message(
+                    chat_id=user_id,
+                    text="✅ آهنگ با موفقیت دانلود شد👌\nدر حال ارسال فایل..."
+                )
+
+                caption=(
+                    f'<a href="https://t.me/Megaa_helperbot">@megaa_helperbot</a> | <a href="{context.user_data.get("soundcloud_url")}">Music link</a>'
+                )
+
+                #send to channel
+                bot = context.bot
+                with open(file_path, 'rb') as audio_file:
+                    await bot.send_audio(
+                        chat_id=config["channels"][0],
+                        audio=audio_file,
+                        caption=caption,
+                        parse_mode="HTML"
+                    )
+
+                #send to user
+                with open(file_path, 'rb') as audio_file:
+                    await context.bot.send_audio(
+                        chat_id=user_id,
+                        audio=audio_file,
+                        caption=caption,
+                        parse_mode="HTML"
+                    )
+
+                os.remove(file_path)
+
+                if "soundcloud_step" in context.user_data:
+                    del context.user_data["soundcloud_step"]
+                if "soundcloud_query" in context.user_data:
+                    del context.user_data["soundcloud_query"]
+                if "soundcloud_url" in context.user_data:
+                    del context.user_data["soundcloud_url"]
+
+                return
+            
+            except Exception as e:
+                if "soundcloud_step" in context.user_data:
+                    del context.user_data["soundcloud_step"]
+                if "soundcloud_query" in context.user_data:
+                    del context.user_data["soundcloud_query"]
+                if "soundcloud_url" in context.user_data:
+                    del context.user_data["soundcloud_url"]
+ 
+                error_message = str(e)
+
+                if error_message == "1008096572":
+                    await query.edit_message_caption(
+                        caption="⏳ زمان دانلود به پایان رسید!\n\nلطفاً لینک آهنگ را دوباره ارسال کنید تا بتوانید آن را دانلود کنید."
+                    )
+                else:
+                    await query.edit_message_caption(
+                        caption=f"⚠ مشکلی پیش آمده:\n\n{error_message}"
+                    )
+        else:
+            await query.edit_message_caption(
+                caption="⚠ مشکلی پیش آمده...\nلطفا دوباره تلاش کنید",
+            )
+
+            if "soundcloud_step" in context.user_data:
+                del context.user_data["soundcloud_step"]
+            if "soundcloud_query" in context.user_data:
+                del context.user_data["soundcloud_query"]
+            if "soundcloud_url" in context.user_data:
+                del context.user_data["soundcloud_url"]
+            return
+
+    elif query.data == "cancel_download_soundcloud":
+        if soundcloud_step:
+            if "soundcloud_step" in context.user_data:
+                del context.user_data["soundcloud_step"]
+            if "soundcloud_query" in context.user_data:
+                del context.user_data["soundcloud_query"]
+            if "soundcloud_url" in context.user_data:
+                del context.user_data["soundcloud_url"]
+
+            await query.edit_message_caption(
+                caption="درخواست شما با موفقیت لغو شد ✅"
+            )
+
+            return
+        else:
+            await query.edit_message_caption(
+                caption="⚠ این درخواست قبلاً پردازش شده است و دیگر معتبر نیست. لطفاً دوباره مراحل را طی کنید..."
+            )
+
+            if "soundcloud_step" in context.user_data:
+                del context.user_data["soundcloud_step"]
+            if "soundcloud_query" in context.user_data:
+                del context.user_data["soundcloud_query"]
+            if "soundcloud_url" in context.user_data:
+                del context.user_data["soundcloud_url"]
+            return       
+
 
 def main():
     print("[BOT] initializing...")
