@@ -738,7 +738,7 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
                         cursor.execute('UPDATE users SET coins = ? WHERE user_id = ?', (new_coins ,user_id,))
                         conn.commit()
                     else:
-                        await update.callback_query.send_message(
+                        await context.bot.send_message(
                             text="⚠ سکه های شما کافی نمیباشد!\nشما میتوانید از طریق بخش افزایش سکه تعداد سکه های خود را افزایش دهید...",
                         )
                         if "spotify_step" in context.user_data:
