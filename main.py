@@ -1048,12 +1048,10 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
                         "⚠ سکه های شما کافی نمیباشد!\nشما میتوانید از طریق بخش افزایش سکه تعداد سکه های خود را افزایش دهید...",
                         reply_markup=inline_markup
                     )
-
                     if "insta_post_url" in context.user_data:
                         del context.user_data["insta_post_url"]
                     if "insta_post_step" in context.user_data:
                         del context.user_data["insta_post_step"]
-
                     return
 
             if is_video:
@@ -1065,6 +1063,11 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
                             video=media_file,
                             caption=post.caption
                         )
+                        if "insta_post_url" in context.user_data:
+                            del context.user_data["insta_post_url"]
+                        if "insta_post_step" in context.user_data:
+                            del context.user_data["insta_post_step"]
+                        return
                 else:
                     await update.callback_query.edit_message_text(
                         "⚠خطا: ویدیو دانلود نشده است. لطفا دوباره مراحل را طی کنید...",
@@ -1080,7 +1083,15 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
                 if image_files:
                     media_path = image_files[0]
                     with open(media_path, "rb") as media_file:
-                        await update.callback_query.message.reply_photo(photo=media_file, caption=post.caption)
+                        await update.callback_query.message.reply_photo(
+                            photo=media_file,
+                            caption=post.caption
+                        )
+                        if "insta_post_url" in context.user_data:
+                            del context.user_data["insta_post_url"]
+                        if "insta_post_step" in context.user_data:
+                            del context.user_data["insta_post_step"]
+                        return
                 else:
                     await update.callback_query.edit_message_text(
                         "⚠خطا: عکس دانلود نشده است. لطفا دوباره مراحل را طی کنید...",
