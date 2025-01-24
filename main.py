@@ -725,11 +725,6 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
                 query_text = context.user_data.get("spotify_query")
                 file_path = download_from_youtube(query_text)
                 
-                await context.bot.send_message(
-                    chat_id=user_id,
-                    text="✅ آهنگ با موفقیت دانلود شد👌\nدر حال ارسال فایل..."
-                )
-                
                 # delete the coin in account 
                 with sqlite3.connect("data.db") as conn:
                     cursor = conn.cursor()
@@ -743,9 +738,8 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
                         cursor.execute('UPDATE users SET coins = ? WHERE user_id = ?', (new_coins ,user_id,))
                         conn.commit()
                     else:
-                        await update.callback_query.edit_message_text(
-                            "⚠ سکه های شما کافی نمیباشد!\nشما میتوانید از طریق بخش افزایش سکه تعداد سکه های خود را افزایش دهید...",
-                            reply_markup=inline_markup
+                        await update.callback_query.send_message(
+                            text="⚠ سکه های شما کافی نمیباشد!\nشما میتوانید از طریق بخش افزایش سکه تعداد سکه های خود را افزایش دهید...",
                         )
                         if "spotify_step" in context.user_data:
                             del context.user_data["spotify_step"]
@@ -756,6 +750,11 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
 
                         return
             
+                await context.bot.send_message(
+                    chat_id=user_id,
+                    text="✅ آهنگ با موفقیت دانلود شد👌\nدر حال ارسال فایل..."
+                )
+
                 caption = (
                     f'<a href="https://t.me/Megaa_helperbot">@megaa_helperbot</a> | <a href="{context.user_data.get("spotify_url")}">Music link</a>'
                 )
