@@ -25,24 +25,42 @@ from http.cookies import SimpleCookie
 # # استفاده از این تابع
 # json_to_netscape("cookies.json", "cookies.txt")
 
+from telegram import Update
+from telegram.ext import Application, CommandHandler, MessageHandler, filters
+from googletrans import Translator
 
-import subprocess
+# توکن ربات تلگرام
+TELEGRAM_TOKEN = '7667164344:AAGexmRDdWX-uWoolMtVB46lEMkqO2SKkPE'
 
-def download_soundcloud(track_url, output_file="soundcloud_audio.mp3"):
-    command = [
-        "yt-dlp",
-        "-f", "bestaudio",
-        "--extract-audio",
-        "--audio-format", "mp3",
-        "-o", output_file,
-        track_url
-    ]
-    
-    subprocess.run(command, check=True)
-    print(f"✅ دانلود کامل شد: {output_file}")
+translator = Translator()
 
-# 🔹 لینک آهنگ SoundCloud را اینجا بگذارید
-track_url = "https://soundcloud.com/majid-rodgar-581819939/tazvir-intro-prod-saraei?in=majid-rodgar-581819939/sets/tazvir&si=aec066110dd64f6e82963e521acaad45&utm_source=clipboard&utm_medium=text&utm_campaign=social_sharing"
+# تابع برای ترجمه پیام
+async def translate(update: Update, context) -> None:
+    text = update.message.text
+    # جداسازی زبان هدف از متن پیام
+    parts = text.split(' ', 1)
+    if len(parts) > 1:
+        target_language = parts[0]  # زبان هدف (مثلاً 'en')
+        text_to_translate = parts[1]  # متن برای ترجمه
+        translated = await translator.translate(text_to_translate, dest=target_language)
+        await update.message.reply_text(f"Translated Text: {translated.text}")
+    else:
+        await update.message.reply_text("Please provide a target language code followed by text to translate.\nExample: 'en Hello world'.")
 
-# دانلود آهنگ
-download_soundcloud(track_url)
+# شروع ربات
+async def start(update: Update, context) -> None:
+    await update.message.reply_text("Welcome! Send a message in the format: 'language_code text_to_translate'.\nExample: 'en Hello world'.")
+
+def main():
+    # ایجاد اپلیکیشن جدید با توکن ربات
+    application = Application.builder().token(TELEGRAM_TOKEN).build()
+
+    # افزودن هندلرها
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, translate))
+
+    # شروع ربات
+    application.run_polling()
+
+if __name__ == '__main__':
+    main()

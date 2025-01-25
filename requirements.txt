@@ -10,3 +10,4 @@ qrcode
 pillow
 opencv-python
 pyzbar
+googletrans

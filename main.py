@@ -23,15 +23,17 @@ import speedtest
 import qrcode 
 import cv2
 from pyzbar.pyzbar import decode
+from googletrans import Translator
 
 import pytz
 tehran_tz = pytz.timezone('Asia/Tehran')    
 
+translator = Translator()
 
 # select token
 with open('config.json', 'r', encoding='utf-8') as config_file:
     config = json.load(config_file)
-TOKEN = config["api1"]["token"]
+TOKEN = config["api2"]["token"]
 SPOTIPY_CLIENT_ID = config["client_spotify"]["client_id"]
 SPOTIPY_CLIENT_SECRET = config["client_spotify"]["client_secret"]
 
@@ -258,9 +260,9 @@ async def start(update: Update, context: CallbackContext) -> None:
 
     keyboard = [
         [KeyboardButton("📥 دانـلودر 📥"), KeyboardButton("💵 قیمت ارز 💵")],
-        [KeyboardButton("🔳 QR Code 🔳")],
-        [KeyboardButton("📊 حساب کاربری 📊"), KeyboardButton("🚀 سرعت اینترنت 🚀")],
-        [KeyboardButton("💰 افزایش سکه 💰"), KeyboardButton("👨‍💻راهنما و پشتیبانی 👨‍💻")]
+        [KeyboardButton("🔳 QR Code 🔳"), KeyboardButton("🌐 مترجم متنی 🌐")],
+        [KeyboardButton("📊 حساب کاربری 📊"), KeyboardButton("💰 افزایش سکه 💰")],
+        [KeyboardButton("👨‍💻راهنما و پشتیبانی 👨‍💻")]
     ]
 
     # check user
@@ -369,29 +371,66 @@ async def echo(update: Update, context: CallbackContext) -> None:
                 reply_markup=inline_markup
             )     
 
-    elif text == "🚀 سرعت اینترنت 🚀":
-        await update.message.reply_text("⏳ در حال بررسی سرعت اینترنت، لطفا چند ثانیه صبر کنید...")
-
+    elif text == "🌐 مترجم متنی 🌐":
         keyboard = [
+            [KeyboardButton("🇬🇧 انگلیسی"), KeyboardButton("🇪🇸 اسپانیایی"), KeyboardButton("🇮🇷 فارسی")],
+            # [KeyboardButton("🇷🇺 روسی"), KeyboardButton("🇪🇸 اسپانیایی"), KeyboardButton("🇩🇪 آلمانی")],
+            # [KeyboardButton("🇮🇹 ایتالیایی"), KeyboardButton("🇹🇷 ترکی"), KeyboardButton("🇸🇦 عربی")],
             [KeyboardButton("🔙 بازگشت 🔙")]
         ]
         inline_markup = ReplyKeyboardMarkup(keyboard)
-        
-        st = speedtest.Speedtest()
-        st.get_best_server()
 
-            
-        download_speed = st.download() / 1_000_000
-        upload_speed = st.upload() / 1_000_000
-        ping = st.results.ping
-
-        result_text = f"📡 نتایج سرعت اینترنت:\n\n📥 دانلود: {download_speed:.2f} Mbps\n📤 آپلود: {upload_speed:.2f} Mbps\n🏓 پینگ: {ping} ms"
-
-        await update.message.reply_text(
-            result_text, 
-            reply_markup=inline_markup,
-            parse_mode="Markdown"
+        await context.bot.send_message(
+            chat_id=user_id,
+            text="💠 لطفاً زبان مقصد برای ترجمه را از لیست زیر انتخاب کنید:",
+            reply_markup=inline_markup
         )
+        return
+        
+    elif text == "🇮🇷 فارسی":
+        keyboard = [
+            [KeyboardButton("❌ لغو ❌")]
+        ]
+        inline_markup = ReplyKeyboardMarkup(keyboard)
+
+        await context.bot.send_message(
+            chat_id=user_id,
+            text="💠 متنی که می‌خواهید به فارسی ترجمه شود را ارسال کنید:",
+            reply_markup=inline_markup
+        )
+
+        context.user_data["trans_to_fa"] = True
+        return
+
+    elif text == "🇪🇸 اسپانیایی":
+        keyboard = [
+            [KeyboardButton("❌ لغو ❌")]
+        ]
+        inline_markup = ReplyKeyboardMarkup(keyboard)
+
+        await context.bot.send_message(
+            chat_id=user_id,
+            text="💠 متنی که می‌خواهید به اسپانیایی ترجمه شود را ارسال کنید:",
+            reply_markup=inline_markup
+        )
+
+        context.user_data["trans_to_es"] = True
+        return
+
+    elif text == "🇬🇧 انگلیسی":
+        keyboard = [
+            [KeyboardButton("❌ لغو ❌")]
+        ]
+        inline_markup = ReplyKeyboardMarkup(keyboard)
+
+        await context.bot.send_message(
+            chat_id=user_id,
+            text="💠 متنی که می‌خواهید به انگلیسی ترجمه شود را ارسال کنید:",
+            reply_markup=inline_markup
+        )
+
+        context.user_data["trans_to_en"] = True
+        return
 
     elif text == "🔳 QR Code 🔳":
         keyboard = [
@@ -1116,6 +1155,76 @@ async def echo(update: Update, context: CallbackContext) -> None:
                     del context.user_data["soundcloud_url"]
 
                 return
+
+        #translator
+        elif "trans_to_fa" in context.user_data:
+            fa_text = update.message.text
+            keyboard = [
+                [KeyboardButton("🔙 بازگشت 🔙")]
+            ]
+            inline_markup = ReplyKeyboardMarkup(keyboard)
+            
+            if len(fa_text) > 1:
+                target_language = "fa"
+                translated = await translator.translate(fa_text, dest=target_language)
+                
+                await context.bot.send_message(
+                    chat_id=user_id,
+                    text=f"✅ متن شما با موفقیت ترجمه شد:\n\n{translated.text}",
+                    reply_markup=inline_markup
+                )
+            else:
+                await update.message.reply_text("⚠ مشکلی پیش آمده! لطفا به پشتیبانی اطلاع دهید...\n\nERROR_TEXT: tra_fa")
+
+            if "trans_to_fa" in context.user_data:
+                del context.user_data["trans_to_fa"]
+            return
+
+        elif "trans_to_es" in context.user_data:
+            es_text = update.message.text
+            keyboard = [
+                [KeyboardButton("🔙 بازگشت 🔙")]
+            ]
+            inline_markup = ReplyKeyboardMarkup(keyboard)
+            
+            if len(es_text) > 1:
+                target_language = "es"
+                translated = await translator.translate(es_text, dest=target_language)
+                
+                await context.bot.send_message(
+                    chat_id=user_id,
+                    text=f"✅ متن شما با موفقیت ترجمه شد:\n\n{translated.text}",
+                    reply_markup=inline_markup
+                )
+            else:
+                await update.message.reply_text("⚠ مشکلی پیش آمده! لطفا به پشتیبانی اطلاع دهید...\n\nERROR_TEXT: tra_es")
+
+            if "trans_to_es" in context.user_data:
+                del context.user_data["trans_to_es"]
+            return
+
+        elif "trans_to_en" in context.user_data:
+            en_text = update.message.text
+            keyboard = [
+                [KeyboardButton("🔙 بازگشت 🔙")]
+            ]
+            inline_markup = ReplyKeyboardMarkup(keyboard)
+            
+            if len(en_text) > 1:
+                target_language = "en"
+                translated = await translator.translate(en_text, dest=target_language)
+                
+                await context.bot.send_message(
+                    chat_id=user_id,
+                    text=f"✅ متن شما با موفقیت ترجمه شد:\n\n{translated.text}",
+                    reply_markup=inline_markup
+                )
+            else:
+                await update.message.reply_text("⚠ مشکلی پیش آمده! لطفا به پشتیبانی اطلاع دهید...\n\nERROR_TEXT: tra_en")
+
+            if "trans_to_en" in context.user_data:
+                del context.user_data["trans_to_en"]
+            return
 
         #admin
         elif context.user_data.get("send_all_step"):
