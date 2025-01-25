@@ -31,7 +31,7 @@ tehran_tz = pytz.timezone('Asia/Tehran')
 # select token
 with open('config.json', 'r', encoding='utf-8') as config_file:
     config = json.load(config_file)
-TOKEN = config["api2"]["token"]
+TOKEN = config["api1"]["token"]
 SPOTIPY_CLIENT_ID = config["client_spotify"]["client_id"]
 SPOTIPY_CLIENT_SECRET = config["client_spotify"]["client_secret"]
 
