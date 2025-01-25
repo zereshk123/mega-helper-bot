@@ -2068,7 +2068,6 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
                     del context.user_data["soundcloud_query"]
                 if "soundcloud_url" in context.user_data:
                     del context.user_data["soundcloud_url"]
-
                 return
             
             except Exception as e:
@@ -2087,7 +2086,7 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
                     )
                 else:
                     await query.edit_message_caption(
-                        caption=f"⚠ مشکلی پیش آمده:\n\n{error_message}"
+                        caption=f"⚠ مشکلی پیش آمده:\n\nلطفا به پشتیبانی اطلاع دهید تا به این مشکل رسیدگی کند...\nERROR_CODE: SOU_CLU"
                     )
         else:
             await query.edit_message_caption(
