@@ -51,7 +51,8 @@ def auth_db():
             username TEXT,
             admin_type INTEGER,
             last_dice_time TEXT,
-            coins INTEGER
+            coins INTEGER,
+            referrer_id TEXT
         )''')
         conn.commit()
     print("[BOT] database checked✅")
@@ -219,7 +220,37 @@ async def start(update: Update, context: CallbackContext) -> None:
             cursor.execute("INSERT INTO users (user_id, name, username, admin_type, coins) VALUES (?, ?, ?, ?, ?)", (user_id, user_name, username, 0, config["new_user_coin"]))
             conn.commit()
             print(f"\nnew user add to database...\nuser id => {user_id}\nname => {user_name}\nusername => {username}\n\n")
-        conn.commit()
+
+    # Check referral link
+    if context.args and len(context.args) > 0:
+        referrer_id = context.args[0]
+        with sqlite3.connect("data.db") as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(user_id) FROM users WHERE user_id = ?",(referrer_id,))
+            check_user = cursor.fetchone()[0]
+
+        if check_user == 1:
+            referrer_id = None
+
+        # Prevent self-referral
+        if referrer_id and referrer_id != user_id:
+            with sqlite3.connect("data.db") as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT user_id FROM users WHERE user_id = ?", (referrer_id,))
+                if cursor.fetchone():  # Check if referrer exists
+                    cursor.execute("UPDATE users SET referrer_id = ? WHERE user_id = ?", (referrer_id, user_id))
+                    conn.commit()
+
+                    # Reward both users
+                    cursor.execute("UPDATE users SET coins = coins + 10 WHERE user_id = ?", (user_id,))
+                    conn.commit()
+                    cursor.execute("UPDATE users SET coins = coins + 15 WHERE user_id = ?", (referrer_id,))
+                    conn.commit()
+
+                    await context.bot.send_message(
+                        chat_id=referrer_id,
+                        text=f"🎉 کاربر {user_name} (@{username}) با لینک دعوت شما وارد ربات شد."
+                    )
 
     keyboard = [
         [KeyboardButton("📥 دانـلودر 📥")],
@@ -237,7 +268,7 @@ async def start(update: Update, context: CallbackContext) -> None:
         keyboard.extend([
             [KeyboardButton("🛑 پنل ادمین 🛑")],
             [KeyboardButton("کاهش سکه"), KeyboardButton("افزایش سکه")],
-            [KeyboardButton("دریافت دیتابیس")]
+            [KeyboardButton("دریافت دیتابیس"), KeyboardButton("اطلاعات کاربر")]
         ])
 
     inline_markup = ReplyKeyboardMarkup(keyboard)
@@ -340,7 +371,7 @@ async def echo(update: Update, context: CallbackContext) -> None:
 
     elif text == "💰 افزایش سکه 💰":
         keyboard = [
-            [KeyboardButton("🎲 تاس 🎲")],
+            [KeyboardButton("🎲 تاس 🎲"), KeyboardButton("🔗 زیر مجموعه گیری 🔗")],
             [KeyboardButton("🔙 بازگشت 🔙")]
         ]
         inline_markup = ReplyKeyboardMarkup(keyboard)
@@ -366,6 +397,17 @@ async def echo(update: Update, context: CallbackContext) -> None:
             reply_to_message_id=update.effective_message.id,
             reply_markup=inline_markup
         )
+
+    elif text == "🔗 زیر مجموعه گیری 🔗":
+        user_id = str(update.effective_user.id)
+        bot_username = context.bot.username
+        referral_link = f"https://t.me/{bot_username}?start={user_id}"
+        
+        await context.bot.send_message(
+            chat_id=user_id,
+            text=f"🔗 لینک دعوت شما:\n\n{referral_link}\n\nبا ارسال این لینک به دوستان خود، 15 سکه به حساب شما و 10 سکه به حساب دوستتان اضافه خواهد شد!",
+        )
+        return
 
     elif text == "🎲 تاس 🎲":
         keyboard = [
@@ -780,6 +822,30 @@ async def echo(update: Update, context: CallbackContext) -> None:
                 chat_id=user_id,
                 text="⚠ فایل دیتابیس یافت نشد!"
             )
+
+    elif text == "اطلاعات کاربر":
+        #check admin
+        with sqlite3.connect("data.db") as conn:
+            cursor  = conn.cursor()
+            cursor.execute("SELECT admin_type FROM users WHERE user_id = ?", (user_id,))
+            admin_type = cursor.fetchone()
+
+        if int(admin_type[0]) != 1:
+            None
+
+        keyboard = [
+            [KeyboardButton("❌ لغو ❌")]
+        ]
+        inline_markup = ReplyKeyboardMarkup(keyboard)
+        
+        await context.bot.send_message(
+            chat_id=user_id,
+            text="🤖 شناسه عددی کاربر مد نظر را وارد کنید:",
+            reply_to_message_id=update.effective_message.id,
+            reply_markup=inline_markup
+        )
+        context.user_data["step_about_user"] = True
+        return
 
     else:
         if user_id in user_support_progress:
@@ -1217,6 +1283,75 @@ async def echo(update: Update, context: CallbackContext) -> None:
             context.user_data["remove_num_coins"] = num_coins
             return
 
+        elif context.user_data.get("step_about_user") == True:
+            about_user_id = update.message.text
+
+            if not str(about_user_id).isdigit():                
+                await context.bot.send_message(
+                    chat_id=user_id,
+                    text="❌ یوزر آیدی وارد شده اشتباه است!",
+                    reply_to_message_id=update.effective_message.id,
+                    reply_markup=inline_markup
+                )
+                if "step_about_user" in context.user_data:
+                    context.user_data["step_about_user"]
+                return
+
+            if len(str(about_user_id)) < 6:
+                await context.bot.send_message(
+                    chat_id=user_id,
+                    text="❌ یوزر آیدی وارد شده معتبر نیست!",
+                    reply_to_message_id=update.effective_message.id,
+                    reply_markup=inline_markup
+                )
+                if "step_about_user" in context.user_data:
+                    context.user_data["step_about_user"]
+                return
+
+            with sqlite3.connect("data.db") as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT COUNT(*) FROM users WHERE user_id = ?", (about_user_id,))
+                user_exists = cursor.fetchone()[0]
+
+            if user_exists == 0:
+                await context.bot.send_message(
+                    chat_id=user_id,
+                    text="❌ این کاربر در ربات ثبت نام نکرده است!",
+                    reply_to_message_id=update.effective_message.id,
+                    reply_markup=inline_markup
+                )
+                if "step_about_user" in context.user_data:
+                    context.user_data["step_about_user"]
+                return
+
+            with sqlite3.connect("data.db") as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT * FROM users WHERE user_id = ?", (about_user_id,))
+                about_user_data = cursor.fetchone()
+                
+            if about_user_data:
+                if about_user_data[3] == 1:
+                    user_type = "ادمین"
+                else:
+                    user_type = "کاربر عادی"
+
+                user_name = about_user_data[1]
+                username = about_user_data[2]
+                coins = about_user_data[5]
+
+                inline_keyboard = [[InlineKeyboardButton(f"⭐ نوع حساب:  {user_type}", callback_data="no_action")]]
+                inline_markup = InlineKeyboardMarkup(inline_keyboard)
+
+                await context.bot.send_message(
+                    chat_id=user_id,
+                    text=f"🔆 اطلاعات حساب:\n\n💠 نام: {user_name}\n💠 نام کاربری: @{username}\n💠 شناسه عددی: {user_id}\n💰 تعداد سکه ها: {coins}",
+                    reply_to_message_id=update.effective_message.id,
+                    reply_markup=inline_markup
+                )
+
+                if "step_about_user" in context.user_data:
+                    context.user_data["step_about_user"]
+                return
         else:
             keyboard = [
                 [KeyboardButton("🔙 بازگشت 🔙")]
