@@ -33,7 +33,7 @@ translator = Translator()
 # select token
 with open('config.json', 'r', encoding='utf-8') as config_file:
     config = json.load(config_file)
-TOKEN = config["api1"]["token"]
+TOKEN = config["api2"]["token"]
 SPOTIPY_CLIENT_ID = config["client_spotify"]["client_id"]
 SPOTIPY_CLIENT_SECRET = config["client_spotify"]["client_secret"]
 
@@ -1083,7 +1083,7 @@ async def echo(update: Update, context: CallbackContext) -> None:
                 context.user_data["insta_post_url"] = shortcode
 
                 keyboard = [
-                    [InlineKeyboardButton("✅ بله", callback_data="confirm_download_insta_post"), InlineKeyboardButton("❌ خیر", callback_data="cancel_download_insta_post")]
+                    [InlineKeyboardButton("❌ خیر", callback_data="cancel_download_insta_post"), InlineKeyboardButton("✅ بله", callback_data="confirm_download_insta_post")]
                 ]
                 reply_markup = InlineKeyboardMarkup(keyboard)
                 
@@ -1100,6 +1100,7 @@ async def echo(update: Update, context: CallbackContext) -> None:
                     del context.user_data["insta_post_url"]
                 if "insta_post_step" in context.user_data:
                     del context.user_data["insta_post_step"]
+                return
 
         elif "soundcloud_step" in context.user_data:
             if re.match(soudncloud_pattern, text) is not None:
@@ -1845,6 +1846,7 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
                     return
 
                 downloaded_files = glob.glob(os.path.join(post_folder, "*"))
+                
                 if not downloaded_files:
                     await update.callback_query.edit_message_text(
                         "⚠خطا: فایل ها دانلود نشدند. لطفا دوباره مراحل را طی کنید...",
@@ -1885,10 +1887,12 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
                     video_files = [f for f in downloaded_files if f.endswith(".mp4")]
                     if video_files:
                         media_path = video_files[0]
+                        if len(post.caption) > config["max_len_capt"]:
+                            post_capt = post.caption[:config["[:max_length]"]]
                         with open(media_path, "rb") as media_file:
                             await update.callback_query.message.reply_video(
                                 video=media_file,
-                                caption=post.caption
+                                caption=post_capt
                             )
                             if "insta_post_url" in context.user_data:
                                 del context.user_data["insta_post_url"]
@@ -1909,10 +1913,12 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
                     image_files = [f for f in downloaded_files if f.endswith((".jpg", ".png"))]
                     if image_files:
                         media_path = image_files[0]
+                        if len(post.caption) > config["max_len_capt"]:
+                            post_capt = post.caption[:config["[:max_length]"]]
                         with open(media_path, "rb") as media_file:
                             await update.callback_query.message.reply_photo(
                                 photo=media_file,
-                                caption=post.caption
+                                caption=post_capt
                             )
                             if "insta_post_url" in context.user_data:
                                 del context.user_data["insta_post_url"]
@@ -1942,9 +1948,19 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
                 return
             except Exception as e:
                 await update.callback_query.edit_message_text(f"⚠ خطا:\n{e}")
+                if "insta_post_url" in context.user_data:
+                    del context.user_data["insta_post_url"]
+                if "insta_post_step" in context.user_data:
+                    del context.user_data["insta_post_step"]
+                return
             finally:
                 if post_folder and os.path.exists(post_folder):
                     shutil.rmtree(post_folder)
+                if "insta_post_url" in context.user_data:
+                    del context.user_data["insta_post_url"]
+                if "insta_post_step" in context.user_data:
+                    del context.user_data["insta_post_step"]
+                return
         else:
             await query.edit_message_caption(
                 caption="⚠ این درخواست قبلاً پردازش شده است و دیگر معتبر نیست. لطفاً دوباره مراحل را طی کنید..."

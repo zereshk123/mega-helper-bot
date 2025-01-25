@@ -31,5 +31,6 @@
     "@music_mega_helper"
   ],
 
-  "max_txt_qrcode": 400 
+  "max_txt_qrcode": 400,
+  "max_len_capt": 1000 
 }
