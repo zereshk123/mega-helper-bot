@@ -19,7 +19,6 @@ import sqlite3
 from telegram.error import TimedOut
 from time import sleep
 from datetime import datetime, timedelta
-import speedtest
 import qrcode 
 import cv2
 from pyzbar.pyzbar import decode
@@ -36,6 +35,7 @@ with open('config.json', 'r', encoding='utf-8') as config_file:
 TOKEN = config["api1"]["token"]
 SPOTIPY_CLIENT_ID = config["client_spotify"]["client_id"]
 SPOTIPY_CLIENT_SECRET = config["client_spotify"]["client_secret"]
+max_leng_cap = config["max_len_capt"]
 
 loader = instaloader.Instaloader(
     download_pictures=config["insta_loader_opt"]["download_pictures"],
@@ -1889,7 +1889,6 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
                         media_path = video_files[0]
                         
                         if len(post.caption) > config["max_len_capt"]:
-                            max_leng_cap = config["max_len_capt"]
                             post_capt = post.caption[:max_leng_cap]
                         else:
                             post_capt = post.caption
@@ -1920,7 +1919,6 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
                         media_path = image_files[0]
                         
                         if len(post.caption) > config["max_len_capt"]:
-                            max_leng_cap = config["max_len_capt"]
                             post_capt = post.caption[:max_leng_cap]
                         else:
                             post_capt = post.caption
