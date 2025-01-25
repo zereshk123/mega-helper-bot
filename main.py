@@ -2071,6 +2071,19 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
                 return
             
             except Exception as e:
+                # Add the coin in account 
+                with sqlite3.connect("data.db") as conn:
+                    cursor = conn.cursor()
+                    #get the number of coins
+                    cursor.execute('SELECT coins FROM users WHERE user_id = ?', (user_id,))
+                    old_coins = cursor.fetchone()
+
+                    new_coins = old_coins[0] + 2
+                    #set the new number of coins
+                    cursor.execute('UPDATE users SET coins = ? WHERE user_id = ?', (new_coins ,user_id,))
+                    conn.commit()
+ 
+
                 if "soundcloud_step" in context.user_data:
                     del context.user_data["soundcloud_step"]
                 if "soundcloud_query" in context.user_data:
@@ -2083,6 +2096,10 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
                 if error_message == "1008096572":
                     await query.edit_message_caption(
                         caption="⏳ زمان دانلود به پایان رسید!\n\nلطفاً لینک آهنگ را دوباره ارسال کنید تا بتوانید آن را دانلود کنید."
+                    )
+                if error_message == "خطا در دانلود: ⚠️ هیچ آهنگ یا ویدیویی با تطابق بالای 70 درصد یافت نشد :(":
+                    await query.edit_message_caption(
+                        caption="💠 متاسفانه امکان دانلود این اهنگ وجود ندارد..."
                     )
                 else:
                     await query.edit_message_caption(
