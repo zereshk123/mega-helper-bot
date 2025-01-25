@@ -258,7 +258,7 @@ async def start(update: Update, context: CallbackContext) -> None:
 
     keyboard = [
         [KeyboardButton("📥 دانـلودر 📥"), KeyboardButton("💵 قیمت ارز 💵")],
-        [KeyboardButton("..."), KeyboardButton("🔳 QR Code 🔳")],
+        [KeyboardButton("🔳 QR Code 🔳")],
         [KeyboardButton("📊 حساب کاربری 📊"), KeyboardButton("🚀 سرعت اینترنت 🚀")],
         [KeyboardButton("💰 افزایش سکه 💰"), KeyboardButton("👨‍💻راهنما و پشتیبانی 👨‍💻")]
     ]
