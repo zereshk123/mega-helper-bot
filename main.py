@@ -1887,9 +1887,13 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
                     video_files = [f for f in downloaded_files if f.endswith(".mp4")]
                     if video_files:
                         media_path = video_files[0]
+                        
                         if len(post.caption) > config["max_len_capt"]:
                             max_leng_cap = config["max_len_capt"]
                             post_capt = post.caption[:max_leng_cap]
+                        else:
+                            post_capt = post.caption
+
                         with open(media_path, "rb") as media_file:
                             await update.callback_query.message.reply_video(
                                 video=media_file,
@@ -1914,9 +1918,13 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
                     image_files = [f for f in downloaded_files if f.endswith((".jpg", ".png"))]
                     if image_files:
                         media_path = image_files[0]
+                        
                         if len(post.caption) > config["max_len_capt"]:
                             max_leng_cap = config["max_len_capt"]
                             post_capt = post.caption[:max_leng_cap]
+                        else:
+                            post_capt = post.caption
+
                         with open(media_path, "rb") as media_file:
                             await update.callback_query.message.reply_photo(
                                 photo=media_file,
