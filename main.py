@@ -19,6 +19,10 @@ import sqlite3
 from telegram.error import TimedOut
 from time import sleep
 from datetime import datetime, timedelta
+import speedtest
+import qrcode 
+import cv2
+from pyzbar.pyzbar import decode
 
 import pytz
 tehran_tz = pytz.timezone('Asia/Tehran')    
@@ -27,7 +31,7 @@ tehran_tz = pytz.timezone('Asia/Tehran')
 # select token
 with open('config.json', 'r', encoding='utf-8') as config_file:
     config = json.load(config_file)
-TOKEN = config["api1"]["token"]
+TOKEN = config["api2"]["token"]
 SPOTIPY_CLIENT_ID = config["client_spotify"]["client_id"]
 SPOTIPY_CLIENT_SECRET = config["client_spotify"]["client_secret"]
 
@@ -253,8 +257,9 @@ async def start(update: Update, context: CallbackContext) -> None:
                     )
 
     keyboard = [
-        [KeyboardButton("📥 دانـلودر 📥")],
-        [KeyboardButton("📊 حساب کاربری 📊"), KeyboardButton("💵 قیمت ارز 💵")],
+        [KeyboardButton("📥 دانـلودر 📥"), KeyboardButton("💵 قیمت ارز 💵")],
+        [KeyboardButton("..."), KeyboardButton("🔳 QR Code 🔳")],
+        [KeyboardButton("📊 حساب کاربری 📊"), KeyboardButton("🚀 سرعت اینترنت 🚀")],
         [KeyboardButton("💰 افزایش سکه 💰"), KeyboardButton("👨‍💻راهنما و پشتیبانی 👨‍💻")]
     ]
 
@@ -368,6 +373,72 @@ async def echo(update: Update, context: CallbackContext) -> None:
                 reply_to_message_id=update.effective_message.id,
                 reply_markup=inline_markup
             )     
+
+    elif text == "🚀 سرعت اینترنت 🚀":
+        await update.message.reply_text("⏳ در حال بررسی سرعت اینترنت، لطفا چند ثانیه صبر کنید...")
+
+        keyboard = [
+            [KeyboardButton("🔙 بازگشت 🔙")]
+        ]
+        inline_markup = ReplyKeyboardMarkup(keyboard)
+        
+        st = speedtest.Speedtest()
+        st.get_best_server()
+
+            
+        download_speed = st.download() / 1_000_000
+        upload_speed = st.upload() / 1_000_000
+        ping = st.results.ping
+
+        result_text = f"📡 نتایج سرعت اینترنت:\n\n📥 دانلود: {download_speed:.2f} Mbps\n📤 آپلود: {upload_speed:.2f} Mbps\n🏓 پینگ: {ping} ms"
+
+        await update.message.reply_text(
+            result_text, 
+            reply_markup=inline_markup,
+            parse_mode="Markdown"
+        )
+
+    elif text == "🔳 QR Code 🔳":
+        keyboard = [
+            [KeyboardButton("📤 ساخت QR Code"), KeyboardButton("📥 خواندن QR Code")],
+            [KeyboardButton("🔙 بازگشت 🔙")]
+        ]
+        inline_markup = ReplyKeyboardMarkup(keyboard)
+        
+        await context.bot.send_message(
+            chat_id=user_id,
+            text="💠 لطفاً یکی از گزینه‌های زیر را انتخاب کنید:",
+            reply_markup=inline_markup
+        )
+        return
+
+    elif text == "📤 ساخت QR Code":
+        keyboard = [
+            [KeyboardButton("❌ لغو ❌")]
+        ]
+        inline_markup = ReplyKeyboardMarkup(keyboard)
+        
+        await context.bot.send_message(
+            chat_id=user_id,
+            text="💠 لطفاً متنی که می‌خواهید به QR Code تبدیل شود را ارسال کنید:\n🔹 این متن می‌تواند لینک، شماره تماس، متن ساده یا هر اطلاعات دیگری باشد.\n🔸 مثال: https://example.com یا 09123456789",
+            reply_markup=inline_markup
+        )
+        context.user_data["create_qr"] = True
+        return
+
+    elif text == "📥 خواندن QR Code":
+        keyboard = [
+            [KeyboardButton("❌ لغو ❌")]
+        ]
+        inline_markup = ReplyKeyboardMarkup(keyboard)
+        
+        await context.bot.send_message(
+            chat_id=user_id,
+            text="💠لطفا عکس qrcode خود را بفرستید:",
+            reply_markup=inline_markup
+        )
+        context.user_data["read_qr"] = True
+        return
 
     elif text == "💰 افزایش سکه 💰":
         keyboard = [
@@ -741,6 +812,12 @@ async def echo(update: Update, context: CallbackContext) -> None:
             del context.user_data["coin_remove_user_id_dest"]
         if "remove_num_coins" in context.user_data:
             del context.user_data["remove_num_coins"]
+
+        if "create_qr" in context.user_data:
+            del context.user_data["create_qr"]
+
+        if "read_qr" in context.user_data:
+            del context.user_data["read_qr"]
 
         if user_id in user_support_progress:
             del user_support_progress[user_id]
@@ -1352,6 +1429,41 @@ async def echo(update: Update, context: CallbackContext) -> None:
                 if "step_about_user" in context.user_data:
                     context.user_data["step_about_user"]
                 return
+
+        elif context.user_data.get("create_qr") == True:
+            qrcode_text = " ".join(update.message.text)
+
+            keyboard = [
+                [KeyboardButton("❌ لغو ❌")]
+            ]
+            inline_markup = ReplyKeyboardMarkup(keyboard)
+
+            #check length text
+            if len(qrcode_text) > config["max_txt_qrcode"]:
+                await context.bot.send_message(
+                    chat_id=user_id,
+                    text="❌ متن شما خیلی طولانی است! لطفاً متنی کوتاه‌ تر ارسال کنید.!",
+                    reply_to_message_id=update.effective_message.id,
+                    reply_markup=inline_markup
+                )
+                if "create_qr" in context.user_data:
+                    del context.user_data["create_qr"]
+                return
+            
+            qr = qrcode.make(qrcode_text)
+            qr_path = f"qr_{user_id}.png"
+            qr.save(qr_path)
+
+            await update.message.reply_photo(
+                photo=open(qr_path, "rb"), 
+                caption="✅ این هم QR Code شما!"
+            )
+            os.remove(qr_path)
+
+            if "create_qr" in context.user_data:
+                del context.user_data["create_qr"]
+            return
+
         else:
             keyboard = [
                 [KeyboardButton("🔙 بازگشت 🔙")]
@@ -1365,6 +1477,79 @@ async def echo(update: Update, context: CallbackContext) -> None:
                 reply_markup=inline_markup
             )
             return
+
+async def echo_photo(update: Update, context: CallbackContext) -> None:
+    user_id = str(update.effective_user.id)
+    
+    # check channels
+    required_channels = config["channels"]
+    not_joined_channels = []
+
+    for channel in required_channels:
+        if not await check_user_in_channel(user_id, channel, context):
+            not_joined_channels.append(channel)
+
+    if not_joined_channels:
+        keyboard = [
+            [InlineKeyboardButton(text=f"🔗 {channel}", url=f"https://t.me/{channel[1:]}")]
+            for channel in not_joined_channels
+        ]
+
+        reply_markup = InlineKeyboardMarkup(keyboard)
+
+        message = (
+            "⚠️ برای استفاده از ربات، لطفاً ابتدا عضو کانال‌های زیر شوید:\n\n"
+            "پس از عضویت، دوباره پیام بفرستید."
+        )
+        await context.bot.send_message(
+            chat_id=user_id,
+            text=message,
+            reply_markup=reply_markup
+        )
+        return
+    
+
+    if context.user_data.get("read_qr") == True:
+        keyboard = [
+            [KeyboardButton("🔙 بازگشت 🔙")]
+        ]
+        inline_markup = ReplyKeyboardMarkup(keyboard)
+
+        await update.message.reply_text("📸 در حال خواندن QR Code...")
+        
+        file = await update.message.photo[-1].get_file()
+        qr_path = f"qr_scan_{user_id}.png"
+        await file.download_to_drive(qr_path)
+
+        image = cv2.imread(qr_path)
+        qr_codes = decode(image)
+
+        if not qr_codes:
+            await context.bot.send_message(
+                chat_id=user_id,
+                text="❌ هیچ qrcode ای در تصویر یافت نشد!",
+                reply_markup=inline_markup
+            )
+            os.remove(qr_path)
+            if "read_qr" in context.user_data:
+                del context.user_data["read_qr"]
+            return
+        
+        result_qrcode = "\n".join([qr.data.decode() for qr in qr_codes])
+        result_qrcode = result_qrcode.replace(" ", "")
+
+        await context.bot.send_message(
+            chat_id=user_id,
+            text=f"📄 محتوای QR:\n`{result_qrcode}`",
+            reply_markup=inline_markup,
+            parse_mode="Markdown"
+        )
+
+        os.remove(qr_path)
+        
+        if "read_qr" in context.user_data:
+            del context.user_data["read_qr"]
+        return
 
 async def handle_confirmation(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
@@ -2111,6 +2296,7 @@ def main():
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
+    application.add_handler(MessageHandler(filters.PHOTO, echo_photo))
     application.add_handler(CallbackQueryHandler(handle_confirmation))
     print("[BOT] running bot...")
     application.run_polling()

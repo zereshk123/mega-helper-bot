@@ -29,5 +29,7 @@
 
   "channels":[
     "@music_mega_helper"
-  ]
+  ],
+
+  "max_txt_qrcode": 400 
 }

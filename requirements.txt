@@ -5,3 +5,8 @@ pytz
 instaloader
 fuzzywuzzy
 python-Levenshtein
+speedtest-cli
+qrcode 
+pillow
+opencv-python
+pyzbar
