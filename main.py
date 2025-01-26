@@ -279,7 +279,7 @@ async def start(update: Update, context: CallbackContext) -> None:
     if int(admin_type[0]) == 1:
         keyboard.extend([
             [KeyboardButton("🛑 پنل ادمین 🛑")],
-            [KeyboardButton("پیام به همه")],
+            [KeyboardButton("پیام به همه"), KeyboardButton("تعداد کاربران")],
             [KeyboardButton("کاهش سکه"), KeyboardButton("افزایش سکه")],
             [KeyboardButton("دریافت دیتابیس"), KeyboardButton("اطلاعات کاربر")]
         ])
@@ -896,6 +896,34 @@ async def echo(update: Update, context: CallbackContext) -> None:
             reply_markup=inline_markup
         )
         context.user_data["send_all_step"] = 1
+        return
+
+    elif text == "تعداد کاربران":
+        #check admin
+        with sqlite3.connect("data.db") as conn:
+            cursor  = conn.cursor()
+            cursor.execute("SELECT admin_type FROM users WHERE user_id = ?", (user_id,))
+            admin_type = cursor.fetchone()
+
+        if int(admin_type[0]) != 1:
+            None
+
+        keyboard = [
+            [KeyboardButton("❌ لغو ❌")]
+        ]
+        inline_markup = ReplyKeyboardMarkup(keyboard)
+
+        with sqlite3.connect("data.db") as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM users")
+            num_users = cursor.fetchone()[0]
+
+        await context.bot.send_message(
+            chat_id=user_id,
+            text=f"🤖 تعداد کاربران ربات تا الان: {num_users} نفر 📊",
+            reply_to_message_id=update.effective_message.id,
+            reply_markup=inline_markup
+        )
         return
 
     elif text == "افزایش سکه":
