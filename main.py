@@ -32,10 +32,11 @@ translator = Translator()
 # select token
 with open('config.json', 'r', encoding='utf-8') as config_file:
     config = json.load(config_file)
-TOKEN = config["api2"]["token"]
+TOKEN = config["api1"]["token"]
 SPOTIPY_CLIENT_ID = config["client_spotify"]["client_id"]
 SPOTIPY_CLIENT_SECRET = config["client_spotify"]["client_secret"]
 max_leng_cap = config["max_len_capt"]
+dev_user_id = config["dev_user_id"]
 
 loader = instaloader.Instaloader(
     download_pictures=config["insta_loader_opt"]["download_pictures"],
@@ -214,7 +215,7 @@ async def start(update: Update, context: CallbackContext) -> None:
         )
         return
 
-    # check user
+    # check new user
     with sqlite3.connect("data.db") as conn:
         cursor  = conn.cursor()
         cursor.execute("SELECT user_id FROM users WHERE user_id = ?", (user_id,))
@@ -225,7 +226,11 @@ async def start(update: Update, context: CallbackContext) -> None:
         else:
             cursor.execute("INSERT INTO users (user_id, name, username, admin_type, coins) VALUES (?, ?, ?, ?, ?)", (user_id, user_name, username, 0, config["new_user_coin"]))
             conn.commit()
-            print(f"\nnew user add to database...\nuser id => {user_id}\nname => {user_name}\nusername => {username}\n\n")
+
+            await context.bot.send_message(
+                chat_id=dev_user_id,
+                text=f"✨ کاربر جدیدی در ربات ثبت نام کرد!\n\nنام: {user_name}\nنام کاربری: {username}\یوزر آیدی: {user_id}"
+            )
 
     # Check referral link
     if context.args and len(context.args) > 0:
