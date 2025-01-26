@@ -2479,7 +2479,7 @@ def main():
     application.add_handler(MessageHandler(filters.PHOTO, echo_photo))
     application.add_handler(CallbackQueryHandler(handle_confirmation))
     print("[BOT] running bot...")
-    job_queue.run_repeating(backup_db, interval=config["backup_time"], first=0)
+    job_queue.run_repeating(backup_db, interval=int(config["backup_time"]), first=0)
     application.run_polling()
 
 if __name__ == '__main__':
