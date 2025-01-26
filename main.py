@@ -1913,6 +1913,30 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
                 with open(pin_img_name, "wb") as img_file:
                     img_file.write(pin_img_data)
 
+                # delete the coin in account 
+                with sqlite3.connect("data.db") as conn:
+                    cursor = conn.cursor()
+                    #get the number of coins
+                    cursor.execute('SELECT coins FROM users WHERE user_id = ?', (user_id,))
+                    old_coins = cursor.fetchone()
+
+                    if old_coins[0]-2 >= 0:
+                        new_coins = old_coins[0] - 2
+                        #set the new number of coins
+                        cursor.execute('UPDATE users SET coins = ? WHERE user_id = ?', (new_coins ,user_id,))
+                        conn.commit()
+                    else:
+                        await context.bot.send_message(
+                            chat_id=user_id,
+                            text="⚠ سکه های شما کافی نمیباشد!\nشما میتوانید از طریق بخش افزایش سکه تعداد سکه های خود را افزایش دهید...",
+                        )
+                        
+                        if "pin_step" in context.user_data:
+                            del context.user_data["pin_step"]
+                        if "pin_img_url" in context.user_data:
+                            del context.user_data["pin_img_url"]
+                        return
+       
                 with open(pin_img_name, "rb") as img_file:
                     await context.bot.send_document(
                         chat_id=user_id,
@@ -1920,7 +1944,7 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
                         caption="✅ عکس شما با موفقیت دانلود شد."
                     )
                 
-                os.remove(pin_img_name)
+                os.remove(pin_img_name)     
 
                 if "pin_step" in context.user_data:
                     del context.user_data["pin_step"]
