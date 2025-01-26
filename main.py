@@ -229,7 +229,7 @@ async def start(update: Update, context: CallbackContext) -> None:
 
             await context.bot.send_message(
                 chat_id=dev_user_id,
-                text=f"✨ کاربر جدیدی در ربات ثبت نام کرد!\n\nنام: {user_name}\nنام کاربری: {username}\یوزر آیدی: {user_id}"
+                text=f"✨ کاربر جدیدی در ربات ثبت نام کرد!\n\nنام: {user_name}\nنام کاربری: {username}\nیوزر آیدی: {user_id}"
             )
 
     # Check referral link
