@@ -32,7 +32,7 @@ translator = Translator()
 # select token
 with open('config.json', 'r', encoding='utf-8') as config_file:
     config = json.load(config_file)
-TOKEN = config["api1"]["token"]
+TOKEN = config["api2"]["token"]
 SPOTIPY_CLIENT_ID = config["client_spotify"]["client_id"]
 SPOTIPY_CLIENT_SECRET = config["client_spotify"]["client_secret"]
 max_leng_cap = config["max_len_capt"]
@@ -651,7 +651,7 @@ async def echo(update: Update, context: CallbackContext) -> None:
 
         await context.bot.send_message(
             chat_id=user_id,
-            text="💠لینک آهنگ مد نظر خود را بفرستید:",
+            text="💠لینک آهنگ مد نظر خود را بفرستید:\n\n⚠ لینک اهنگ باید به این صورت باشد: https://soundcloud.com/...",
             reply_to_message_id=update.effective_message.id,
             reply_markup=inline_markup
         )
@@ -1482,6 +1482,11 @@ async def echo(update: Update, context: CallbackContext) -> None:
 
         elif context.user_data.get("step_about_user") == True:
             about_user_id = update.message.text
+            
+            keyboard = [
+                [KeyboardButton("🔙 بازگشت 🔙")]
+            ]
+            inline_markup = ReplyKeyboardMarkup(keyboard)
 
             if not str(about_user_id).isdigit():                
                 await context.bot.send_message(
@@ -1547,7 +1552,7 @@ async def echo(update: Update, context: CallbackContext) -> None:
                 )
 
                 if "step_about_user" in context.user_data:
-                    context.user_data["step_about_user"]
+                    del context.user_data["step_about_user"]
                 return
 
         elif context.user_data.get("create_qr") == True:
