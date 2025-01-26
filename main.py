@@ -1111,8 +1111,10 @@ async def echo(update: Update, context: CallbackContext) -> None:
                 return
 
         elif "pin_step" in context.user_data:
-            if "pinterest.com/pin/" not in text:
+            if not any(substring in text for substring in ["pinterest.com/pin/", "pin.it/"]):
                 await update.message.reply_text("❌ لطفاً یک لینک معتبر از پینترست ارسال کنید.")
+                if "pin_step" in context.user_data:
+                    del context.user_data["pin_step"]
                 return
 
             pin_img_url = update.message.text.strip()
@@ -1141,7 +1143,7 @@ async def echo(update: Update, context: CallbackContext) -> None:
                 return
             else:
                 await update.message.reply_text(
-                    "✅ درخواست شما با موفقیت لغو شد.",
+                    "❌ متاسفانه عکسی برای دانلود پیدا نشد!",
                     reply_markup=reply_markup,
                 )
 
