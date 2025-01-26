@@ -34,7 +34,7 @@
   ],
 
   "backup_db_channel": "-1002295796425",
-  "backup_time": "600",
+  "backup_time": "3600",
 
   "max_txt_qrcode": 400,
   
