@@ -1536,7 +1536,7 @@ async def echo(update: Update, context: CallbackContext) -> None:
             inline_markup = ReplyKeyboardMarkup(keyboard)
             
             if len(jp_text) > 1:
-                target_language = "jp"
+                target_language = "ja"
                 translated = await translator.translate(jp_text, dest=target_language)
                 
                 await context.bot.send_message(
