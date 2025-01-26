@@ -14,7 +14,7 @@ import json
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton, ChatMember
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext, CallbackQueryHandler
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext, CallbackQueryHandler, JobQueue
 import sqlite3
 from telegram.error import TimedOut
 from time import sleep
@@ -2458,16 +2458,28 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
                 del context.user_data["remove_num_coins"]
             return  
 
+async def backup_db(context):
+    bot = context.bot
+
+    if os.path.exists("data.db"):
+        await bot.send_document(
+            chat_id=config["backup_db_channel"],
+            document=open("data.db", 'rb'),
+            caption="📁 بکاپ دیتابیس"
+        )
+
 
 def main():
     print("[BOT] initializing...")
-    application = Application.builder().token(TOKEN).build()
+    application = Application.builder().token(TOKEN).concurrent_updates(True).build()
+    job_queue: JobQueue = application.job_queue
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
     application.add_handler(MessageHandler(filters.PHOTO, echo_photo))
     application.add_handler(CallbackQueryHandler(handle_confirmation))
     print("[BOT] running bot...")
+    job_queue.run_repeating(backup_db, interval=config["backup_time"], first=0)
     application.run_polling()
 
 if __name__ == '__main__':

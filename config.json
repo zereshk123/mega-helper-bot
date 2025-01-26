@@ -33,6 +33,10 @@
     "@music_mega_helper"
   ],
 
+  "backup_db_channel": "-1002295796425",
+  "backup_time": "600",
+
   "max_txt_qrcode": 400,
+  
   "max_len_capt": 1000 
 }
