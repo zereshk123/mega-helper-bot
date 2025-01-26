@@ -380,8 +380,8 @@ async def echo(update: Update, context: CallbackContext) -> None:
     elif text == "🌐 مترجم متنی 🌐":
         keyboard = [
             [KeyboardButton("🇬🇧 انگلیسی"), KeyboardButton("🇪🇸 اسپانیایی"), KeyboardButton("🇮🇷 فارسی")],
-            # [KeyboardButton("🇷🇺 روسی"), KeyboardButton("🇪🇸 اسپانیایی"), KeyboardButton("🇩🇪 آلمانی")],
-            # [KeyboardButton("🇮🇹 ایتالیایی"), KeyboardButton("🇹🇷 ترکی"), KeyboardButton("🇸🇦 عربی")],
+            [KeyboardButton("🇷🇺 روسی"), KeyboardButton("🇸🇦 عربی"), KeyboardButton("🇩🇪 آلمانی")],
+            [KeyboardButton("🇮🇹 ایتالیایی"), KeyboardButton("🇹🇷 ترکی"), KeyboardButton("🇯🇵 ژاپنی")],
             [KeyboardButton("🔙 بازگشت 🔙")]
         ]
         inline_markup = ReplyKeyboardMarkup(keyboard)
@@ -436,6 +436,96 @@ async def echo(update: Update, context: CallbackContext) -> None:
         )
 
         context.user_data["trans_to_en"] = True
+        return
+
+    elif text == "🇩🇪 آلمانی":
+        keyboard = [
+            [KeyboardButton("❌ لغو ❌")]
+        ]
+        inline_markup = ReplyKeyboardMarkup(keyboard)
+
+        await context.bot.send_message(
+            chat_id=user_id,
+            text="💠 متنی که می‌خواهید به آلمانی ترجمه شود را ارسال کنید:",
+            reply_markup=inline_markup
+        )
+
+        context.user_data["trans_to_de"] = True
+        return
+
+    elif text == "🇸🇦 عربی":
+        keyboard = [
+            [KeyboardButton("❌ لغو ❌")]
+        ]
+        inline_markup = ReplyKeyboardMarkup(keyboard)
+
+        await context.bot.send_message(
+            chat_id=user_id,
+            text="💠 متنی که می‌خواهید به عربی ترجمه شود را ارسال کنید:",
+            reply_markup=inline_markup
+        )
+
+        context.user_data["trans_to_ar"] = True
+        return
+
+    elif text == "🇷🇺 روسی":
+        keyboard = [
+            [KeyboardButton("❌ لغو ❌")]
+        ]
+        inline_markup = ReplyKeyboardMarkup(keyboard)
+
+        await context.bot.send_message(
+            chat_id=user_id,
+            text="💠 متنی که می‌خواهید به روسی ترجمه شود را ارسال کنید:",
+            reply_markup=inline_markup
+        )
+
+        context.user_data["trans_to_ru"] = True
+        return
+
+    elif text == "🇹🇷 ترکی":
+        keyboard = [
+            [KeyboardButton("❌ لغو ❌")]
+        ]
+        inline_markup = ReplyKeyboardMarkup(keyboard)
+
+        await context.bot.send_message(
+            chat_id=user_id,
+            text="💠 متنی که می‌خواهید به ترکی ترجمه شود را ارسال کنید:",
+            reply_markup=inline_markup
+        )
+
+        context.user_data["trans_to_tr"] = True
+        return
+ 
+    elif text == "🇮🇹 ایتالیایی":
+        keyboard = [
+            [KeyboardButton("❌ لغو ❌")]
+        ]
+        inline_markup = ReplyKeyboardMarkup(keyboard)
+
+        await context.bot.send_message(
+            chat_id=user_id,
+            text="💠 متنی که می‌خواهید به ایتالیایی ترجمه شود را ارسال کنید:",
+            reply_markup=inline_markup
+        )
+
+        context.user_data["trans_to_it"] = True
+        return
+
+    elif text == "🇯🇵 ژاپنی":
+        keyboard = [
+            [KeyboardButton("❌ لغو ❌")]
+        ]
+        inline_markup = ReplyKeyboardMarkup(keyboard)
+
+        await context.bot.send_message(
+            chat_id=user_id,
+            text="💠 متنی که می‌خواهید به ژاپنی ترجمه شود را ارسال کنید:",
+            reply_markup=inline_markup
+        )
+
+        context.user_data["trans_to_jp"] = True
         return
 
     elif text == "🔳 QR Code 🔳":
@@ -869,6 +959,26 @@ async def echo(update: Update, context: CallbackContext) -> None:
         if user_id in user_support_progress:
             del user_support_progress[user_id]
 
+        #translator
+        if "trans_to_fa" in context.user_data:
+            del context.user_data["trans_to_fa"]
+        if "trans_to_es" in context.user_data:
+            del context.user_data["trans_to_es"]
+        if "trans_to_en" in context.user_data:
+            del context.user_data["trans_to_en"]
+        if "trans_to_de" in context.user_data:
+            del context.user_data["trans_to_de"]
+        if "trans_to_ar" in context.user_data:
+            del context.user_data["trans_to_ar"]
+        if "trans_to_ru" in context.user_data:
+            del context.user_data["trans_to_ru"]
+        if "trans_to_tr" in context.user_data:
+            del context.user_data["trans_to_tr"]
+        if "trans_to_it" in context.user_data:
+            del context.user_data["trans_to_it"]
+        if "trans_to_jp" in context.user_data:
+            del context.user_data["trans_to_jp"]
+
         await start(update, context)
         return
     
@@ -1301,6 +1411,144 @@ async def echo(update: Update, context: CallbackContext) -> None:
 
             if "trans_to_en" in context.user_data:
                 del context.user_data["trans_to_en"]
+            return
+
+        elif "trans_to_de" in context.user_data:
+            de_text = update.message.text
+            keyboard = [
+                [KeyboardButton("🔙 بازگشت 🔙")]
+            ]
+            inline_markup = ReplyKeyboardMarkup(keyboard)
+            
+            if len(de_text) > 1:
+                target_language = "de"
+                translated = await translator.translate(de_text, dest=target_language)
+                
+                await context.bot.send_message(
+                    chat_id=user_id,
+                    text=f"✅ متن شما با موفقیت ترجمه شد:\n\n{translated.text}",
+                    reply_markup=inline_markup
+                )
+            else:
+                await update.message.reply_text("⚠ مشکلی پیش آمده! لطفا به پشتیبانی اطلاع دهید...\n\nERROR_TEXT: tra_de")
+
+            if "trans_to_de" in context.user_data:
+                del context.user_data["trans_to_de"]
+            return
+
+        elif "trans_to_ar" in context.user_data:
+            ar_text = update.message.text
+            keyboard = [
+                [KeyboardButton("🔙 بازگشت 🔙")]
+            ]
+            inline_markup = ReplyKeyboardMarkup(keyboard)
+            
+            if len(ar_text) > 1:
+                target_language = "ar"
+                translated = await translator.translate(ar_text, dest=target_language)
+                
+                await context.bot.send_message(
+                    chat_id=user_id,
+                    text=f"✅ متن شما با موفقیت ترجمه شد:\n\n{translated.text}",
+                    reply_markup=inline_markup
+                )
+            else:
+                await update.message.reply_text("⚠ مشکلی پیش آمده! لطفا به پشتیبانی اطلاع دهید...\n\nERROR_TEXT: tra_ar")
+
+            if "trans_to_ar" in context.user_data:
+                del context.user_data["trans_to_ar"]
+            return
+
+        elif "trans_to_ru" in context.user_data:
+            ru_text = update.message.text
+            keyboard = [
+                [KeyboardButton("🔙 بازگشت 🔙")]
+            ]
+            inline_markup = ReplyKeyboardMarkup(keyboard)
+            
+            if len(ru_text) > 1:
+                target_language = "ru"
+                translated = await translator.translate(ru_text, dest=target_language)
+                
+                await context.bot.send_message(
+                    chat_id=user_id,
+                    text=f"✅ متن شما با موفقیت ترجمه شد:\n\n{translated.text}",
+                    reply_markup=inline_markup
+                )
+            else:
+                await update.message.reply_text("⚠ مشکلی پیش آمده! لطفا به پشتیبانی اطلاع دهید...\n\nERROR_TEXT: tra_ru")
+
+            if "trans_to_ru" in context.user_data:
+                del context.user_data["trans_to_ru"]
+            return
+
+        elif "trans_to_tr" in context.user_data:
+            tr_text = update.message.text
+            keyboard = [
+                [KeyboardButton("🔙 بازگشت 🔙")]
+            ]
+            inline_markup = ReplyKeyboardMarkup(keyboard)
+            
+            if len(tr_text) > 1:
+                target_language = "tr"
+                translated = await translator.translate(tr_text, dest=target_language)
+                
+                await context.bot.send_message(
+                    chat_id=user_id,
+                    text=f"✅ متن شما با موفقیت ترجمه شد:\n\n{translated.text}",
+                    reply_markup=inline_markup
+                )
+            else:
+                await update.message.reply_text("⚠ مشکلی پیش آمده! لطفا به پشتیبانی اطلاع دهید...\n\nERROR_TEXT: tra_tr")
+
+            if "trans_to_tr" in context.user_data:
+                del context.user_data["trans_to_tr"]
+            return
+
+        elif "trans_to_it" in context.user_data:
+            it_text = update.message.text
+            keyboard = [
+                [KeyboardButton("🔙 بازگشت 🔙")]
+            ]
+            inline_markup = ReplyKeyboardMarkup(keyboard)
+            
+            if len(it_text) > 1:
+                target_language = "it"
+                translated = await translator.translate(it_text, dest=target_language)
+                
+                await context.bot.send_message(
+                    chat_id=user_id,
+                    text=f"✅ متن شما با موفقیت ترجمه شد:\n\n{translated.text}",
+                    reply_markup=inline_markup
+                )
+            else:
+                await update.message.reply_text("⚠ مشکلی پیش آمده! لطفا به پشتیبانی اطلاع دهید...\n\nERROR_TEXT: tra_it")
+
+            if "trans_to_it" in context.user_data:
+                del context.user_data["trans_to_it"]
+            return
+
+        elif "trans_to_jp" in context.user_data:
+            jp_text = update.message.text
+            keyboard = [
+                [KeyboardButton("🔙 بازگشت 🔙")]
+            ]
+            inline_markup = ReplyKeyboardMarkup(keyboard)
+            
+            if len(jp_text) > 1:
+                target_language = "it"
+                translated = await translator.translate(jp_text, dest=target_language)
+                
+                await context.bot.send_message(
+                    chat_id=user_id,
+                    text=f"✅ متن شما با موفقیت ترجمه شد:\n\n{translated.text}",
+                    reply_markup=inline_markup
+                )
+            else:
+                await update.message.reply_text("⚠ مشکلی پیش آمده! لطفا به پشتیبانی اطلاع دهید...\n\nERROR_TEXT: tra_jp")
+
+            if "trans_to_jp" in context.user_data:
+                del context.user_data["trans_to_jp"]
             return
 
         #admin
@@ -2354,7 +2602,7 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
             with sqlite3.connect("data.db") as conn:
                 cursor = conn.cursor()
                 cursor.execute("SELECT user_id FROM users")
-                all_user_ids = [user_id[0] for user_id in cursor.fetchall()]
+                all_user_ids = [auser_id[0] for auser_id in cursor.fetchall()]
         
             for all_user_id in all_user_ids:
                 await context.bot.send_message(
@@ -2363,7 +2611,6 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
                 )
 
                 await asyncio.sleep(0.5)
-
 
             await context.bot.send_message(
                 chat_id=user_id,
