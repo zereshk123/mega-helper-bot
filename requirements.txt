@@ -11,3 +11,4 @@ pillow
 opencv-python
 pyzbar
 googletrans
+python-telegram-bot[job-queue]
