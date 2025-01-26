@@ -1,6 +1,7 @@
 import sys
 sys.stdout.reconfigure(encoding='utf-8')
 
+from bs4 import BeautifulSoup
 from fuzzywuzzy import fuzz
 import requests
 import instaloader
@@ -585,8 +586,7 @@ async def echo(update: Update, context: CallbackContext) -> None:
 
     elif text == "📥 دانـلودر 📥":
         keyboard = [
-            # [KeyboardButton("📸 استوری اینستاگرام 📸"), KeyboardButton("🔴 پست اینستاگرام 🔴")],
-            [KeyboardButton("🔴 پست اینستاگرام 🔴")],
+            [KeyboardButton("🔴 (پست)اینستاگرام 🔴"), KeyboardButton("🔴 پینترست(عکس) 🔴")],
             [KeyboardButton("🟠 ساوند کلاود 🟠"), KeyboardButton("🟢 اسپاتیفای 🟢")],
             [KeyboardButton("🔙 بازگشت 🔙")]
         ]
@@ -602,7 +602,7 @@ async def echo(update: Update, context: CallbackContext) -> None:
 
     elif text == "🟢 اسپاتیفای 🟢":
         keyboard = [
-            [KeyboardButton("🔙 بازگشت 🔙")]
+            [KeyboardButton("❌ لغو ❌")]
         ]
         inline_markup = ReplyKeyboardMarkup(keyboard)
 
@@ -616,9 +616,9 @@ async def echo(update: Update, context: CallbackContext) -> None:
         context.user_data["spotify_step"] = 1
         return
 
-    elif text == "🔴 پست اینستاگرام 🔴":
+    elif text == "🔴 (پست)اینستاگرام 🔴":
         keyboard = [
-            [KeyboardButton("🔙 بازگشت 🔙")]
+            [KeyboardButton("❌ لغو ❌")]
         ]
         inline_markup = ReplyKeyboardMarkup(keyboard)
 
@@ -632,25 +632,25 @@ async def echo(update: Update, context: CallbackContext) -> None:
         context.user_data["insta_post_step"] = 1
         return
 
-    # elif text == "📸 استوری اینستاگرام 📸":
+    elif text == "🔴 پینترست(عکس) 🔴":
         keyboard = [
-            [KeyboardButton("🔙 بازگشت 🔙")]
+            [KeyboardButton("❌ لغو ❌")]
         ]
         inline_markup = ReplyKeyboardMarkup(keyboard)
 
         await context.bot.send_message(
             chat_id=user_id,
-            text="💠نام کاربری شخص مورد نظر را وارد کنید:",
+            text="💠لینک عکس را بفرستید:",
             reply_to_message_id=update.effective_message.id,
             reply_markup=inline_markup
-        )
+        )    
 
-        context.user_data["insta_story_step"] = 1
+        context.user_data["pin_step"] = 1
         return
 
     elif text == "🟠 ساوند کلاود 🟠":
         keyboard = [
-            [KeyboardButton("🔙 بازگشت 🔙")]
+            [KeyboardButton("❌ لغو ❌")]
         ]
         inline_markup = ReplyKeyboardMarkup(keyboard)
 
@@ -825,6 +825,9 @@ async def echo(update: Update, context: CallbackContext) -> None:
             del context.user_data["spotify_query"]
         if "spotify_url" in context.user_data:
             del context.user_data["spotify_url"]
+
+        if "pin_step" in context.user_data:
+            del context.user_data["pin_step"]
 
         if "insta_post_url" in context.user_data:
             del context.user_data["insta_post_url"]
@@ -1107,6 +1110,45 @@ async def echo(update: Update, context: CallbackContext) -> None:
 
                 return
 
+        elif "pin_step" in context.user_data:
+            if "pinterest.com/pin/" not in text:
+                await update.message.reply_text("❌ لطفاً یک لینک معتبر از پینترست ارسال کنید.")
+                return
+
+            pin_img_url = update.message.text.strip()
+            await update.message.reply_text("💠 در حال پردازش لینک...")
+
+            keyboard = [
+                [InlineKeyboardButton("✅ بله", callback_data="confirm_download_pin")],
+                [InlineKeyboardButton("❌ خیر", callback_data="cancel_download_pin")]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+
+            pin_headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            }
+                        
+            response = requests.get(pin_img_url, headers=pin_headers)
+            pin_soup = BeautifulSoup(response.text, "html.parser")
+            pin_image_tag = pin_soup.find("meta", property="og:image")
+
+            if pin_image_tag:
+                context.user_data["pin_img_url"] = pin_image_tag["content"]
+                await update.message.reply_text(
+                    "💠در صورت دانلود این عکس 2 سکه از حساب شما کم میشود! آیا می‌خواهید این پست را دانلود کنید؟",
+                    reply_markup=reply_markup,
+                )
+                return
+            else:
+                await update.message.reply_text(
+                    "✅ درخواست شما با موفقیت لغو شد.",
+                    reply_markup=reply_markup,
+                )
+
+                if "pin_step" in context.user_data:
+                    del context.user_data["pin_step"]
+                return
+
         elif "insta_post_step" in context.user_data:
             post_url = update.message.text
 
@@ -1125,7 +1167,6 @@ async def echo(update: Update, context: CallbackContext) -> None:
                     reply_markup=reply_markup,
                 )
                 return
-
             except Exception as e:
                 await update.message.reply_text(f"خطا: {e}")
                 
@@ -1848,6 +1889,93 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
                 del context.user_data["spotify_url"]
 
             return       
+
+    elif query.data == "confirm_download_pin":
+        if "pin_step" in context.user_data:
+            pin_url = context.user_data.get("pin_img_url")
+
+            await query.message.edit_text(
+                text="📩 در حال دانلود عکس...",
+                reply_markup=None
+            )
+
+            keyboard = [
+                [KeyboardButton("🔙 بازگشت 🔙")]
+            ]
+            inline_markup = ReplyKeyboardMarkup(keyboard)
+
+            try:
+                pin_img_name = os.path.basename(pin_url)
+                pin_img_data = requests.get(pin_url).content
+
+                with open(pin_img_name, "wb") as img_file:
+                    img_file.write(pin_img_data)
+
+                with open(pin_img_name, "rb") as img_file:
+                    await context.bot.send_document(
+                        chat_id=user_id,
+                        document=img_file,
+                        caption="✅ عکس شما با موفقیت دانلود شد."
+                    )
+                
+                os.remove(pin_img_name)
+
+                if "pin_step" in context.user_data:
+                    del context.user_data["pin_step"]
+                if "pin_img_url" in context.user_data:
+                    del context.user_data["pin_img_url"]
+                return    
+            except TimedOut:
+                if "pin_step" in context.user_data:
+                    del context.user_data["pin_step"]
+                if "pin_img_url" in context.user_data:
+                    del context.user_data["pin_img_url"]
+
+                await update.callback_query.edit_message_text(
+                    "⚠ خطا: مشکلی در دانلود فایل پیش آمده. لطفا بعدا دوباره مراحل را طی کنید...",
+                    reply_markup=inline_markup
+                )
+                return
+            except Exception as e:
+                if "pin_step" in context.user_data:
+                    del context.user_data["pin_step"]
+                if "pin_img_url" in context.user_data:
+                    del context.user_data["pin_img_url"]
+
+                await update.callback_query.edit_message_text(f"⚠ مشکلی پیش آمده!\nلطفا به پشتیبانی اطلاع دهید...\n\n{e}")
+                return
+        else:
+            await query.edit_message_caption(
+                caption="⚠ این درخواست قبلاً پردازش شده است و دیگر معتبر نیست. لطفاً دوباره مراحل را طی کنید..."
+            )
+
+            if "pin_step" in context.user_data:
+                del context.user_data["pin_step"]
+            if "pin_img_url" in context.user_data:
+                del context.user_data["pin_img_url"]
+            return
+
+    elif query.data == "cancel_download_pin":
+        if "pin_step" in context.user_data:
+            if "pin_step" in context.user_data:
+                del context.user_data["pin_step"]
+            if "pin_img_url" in context.user_data:
+                del context.user_data["pin_img_url"]
+
+            await query.edit_message_text(
+                "درخواست شما با موفقیت لغو شد ✅",
+            )
+            return
+        else:
+            await query.edit_message_caption(
+                caption="⚠ این درخواست قبلاً پردازش شده است و دیگر معتبر نیست. لطفاً دوباره مراحل را طی کنید..."
+            )
+
+            if "pin_step" in context.user_data:
+                del context.user_data["pin_step"]
+            if "pin_img_url" in context.user_data:
+                del context.user_data["pin_img_url"]
+            return
 
     elif query.data == "confirm_download_insta_post":
         if "insta_post_step" in context.user_data:
