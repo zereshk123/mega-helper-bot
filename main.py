@@ -2787,7 +2787,10 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
                         del context.user_data["youtube_url"]
                     return
             
-            await context.bot.send_message("🔄 در حال دانلود فایل صوتی...")
+            await context.bot.send_message(
+                chat_id=user_id,
+                text="🔄 در حال دانلود فایل صوتی..."
+            )
 
             ydl_opts = {
                 'format': 'bestaudio/best',
