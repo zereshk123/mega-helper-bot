@@ -2805,7 +2805,11 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
             file_path = os.path.join(DOWNLOADS_DIR, f"{title}.webm")  # فرض بر این است که فرمت ویدیو webm است
             mp3_file = convert_to_mp3(file_path, title)
 
-            await update.message.reply_audio(open(mp3_file, 'rb'))
+            with open(mp3_file, "rb") as audio_file:
+                await context.bot.send_audio(
+                    chat_id=user_id,
+                    audio=audio_file
+                )
 
             # حذف فایل‌ها در هر صورت
             os.remove(file_path)
