@@ -13,7 +13,6 @@ import yt_dlp
 import os
 import json
 import spotipy
-from time import sleep
 from spotipy.oauth2 import SpotifyClientCredentials
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton, ChatMember
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext, CallbackQueryHandler, JobQueue
@@ -165,16 +164,9 @@ def download_from_soundcloud(query, output_path="downloads/"):
                         best_match = entry
 
                 if best_match and highest_similarity > 60:
-                    safe_title = re.sub(r'[\\/*?:"<>|]', '', best_match['title'])
-                    download_path = f"{output_path}{safe_title}.mp3"
+                    download_path = f"{output_path}{best_match['title']}.mp3"
                     ydl.download([best_match['webpage_url']])
-                    sleep(2)
-                    
-                    if os.path.exists(download_path):
-                        print(f"File successfully downloaded at: {download_path}")
-                        return download_path
-                    else:
-                        raise Exception("⚠ فایل دانلود شده یافت نشد!")
+                    return download_path
                 else:
                     raise Exception("⚠ هیچ آهنگ یا ویدیویی با تطابق بالای 70 درصد یافت نشد :(")
             else:
@@ -2621,6 +2613,7 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
                         parse_mode="HTML"
                     )
 
+                sleep(5)
                 os.remove(file_path)
 
                 if "soundcloud_step" in context.user_data:
