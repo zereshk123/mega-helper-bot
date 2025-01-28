@@ -2787,7 +2787,7 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
                         del context.user_data["youtube_url"]
                     return
             
-            await update.message.reply_text("🔄 در حال دانلود فایل صوتی...")
+            await context.bot.send_message("🔄 در حال دانلود فایل صوتی...")
 
             ydl_opts = {
                 'format': 'bestaudio/best',
@@ -2831,7 +2831,7 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
             if "youtube_url" in context.user_data:
                 del context.user_data["youtube_url"]
 
-            await query.edit_message_caption(
+            await query.edit_message_text(
                 caption="درخواست شما با موفقیت لغو شد ✅"
             )
 
