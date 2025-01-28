@@ -2613,9 +2613,6 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
                         parse_mode="HTML"
                     )
 
-                sleep(5)
-                os.remove(file_path)
-
                 if "soundcloud_step" in context.user_data:
                     del context.user_data["soundcloud_step"]
                 if "soundcloud_query" in context.user_data:
