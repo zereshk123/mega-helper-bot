@@ -5,6 +5,7 @@ from bs4 import BeautifulSoup
 from fuzzywuzzy import fuzz
 import requests
 import instaloader
+import subprocess
 import glob
 import shutil
 import asyncio
@@ -47,6 +48,8 @@ loader = instaloader.Instaloader(
 )
 
 user_support_progress = {}
+MAX_FILE_SIZE = 50 * 1024 * 1024
+DOWNLOADS_DIR = "downloads"
 
 # --- DataBase ---
 def auth_db():
@@ -183,6 +186,24 @@ async def check_user_in_channel(user_id: int, chat_id: str, context: CallbackCon
     except Exception as e:
         print(f"\nError checking user membership: {e}\n\n")
         return False
+
+def get_audio_info(url):
+    ydl_opts = {
+        'format': 'bestaudio/best',
+        'quiet': True,
+        'cookiefile': 'cookies.txt',
+    }
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info_dict = ydl.extract_info(url, download=False)  # فقط اطلاعات بدون دانلود
+        title = info_dict.get('title', 'downloaded_video')  # گرفتن عنوان ویدیو
+        filesize = info_dict.get('filesize', 0)  # دریافت حجم فایل
+        return title, filesize
+
+def convert_to_mp3(input_file, title):
+    output_file = os.path.join(DOWNLOADS_DIR, f"{title}.mp3")
+    subprocess.run(["ffmpeg", "-i", input_file, "-b:a", "128k", "-y", output_file], 
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    return output_file
 
 async def start(update: Update, context: CallbackContext) -> None:
     user_id = str(update.effective_user.id)
@@ -679,6 +700,7 @@ async def echo(update: Update, context: CallbackContext) -> None:
         keyboard = [
             [KeyboardButton("🔴 (پست)اینستاگرام 🔴"), KeyboardButton("🔴 پینترست(عکس) 🔴")],
             [KeyboardButton("🟠 ساوند کلاود 🟠"), KeyboardButton("🟢 اسپاتیفای 🟢")],
+            [KeyboardButton("🔴 یوتیوب 🔴")],
             [KeyboardButton("🔙 بازگشت 🔙")]
         ]
         inline_markup = ReplyKeyboardMarkup(keyboard)
@@ -753,6 +775,22 @@ async def echo(update: Update, context: CallbackContext) -> None:
         )
 
         context.user_data["soundcloud_step"] = 1
+        return
+
+    elif text == "🔴 یوتیوب 🔴":
+        keyboard = [
+            [KeyboardButton("❌ لغو ❌")]
+        ]
+        inline_markup = ReplyKeyboardMarkup(keyboard)
+
+        await context.bot.send_message(
+            chat_id=user_id,
+            text="💠لینک ویدیو را بفرستید:\n⚠ ترجیحا ویدیو های بالای 1 ساعت را نفرستید! بعد از ارسال لینک فایل صوتی آن برای شما ارسال می شود...",
+            reply_to_message_id=update.effective_message.id,
+            reply_markup=inline_markup
+        )
+
+        context.user_data["youtube_step"] = 1
         return
 
     elif text == "💵 قیمت ارز 💵":
@@ -1373,6 +1411,41 @@ async def echo(update: Update, context: CallbackContext) -> None:
                 if "soundcloud_url" in context.user_data:
                     del context.user_data["soundcloud_url"]
 
+                return
+
+        elif "youtube_step" in context.user_data:
+            if not any(substring in text for substring in ["youtube.com/"]):
+                youtube_url = update.message.text
+
+                keyboard = [
+                    [InlineKeyboardButton("✅ بله", callback_data="confirm_download_youtube")],
+                    [InlineKeyboardButton("❌ خیر", callback_data="cancel_download_youtube")]
+                ]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+                
+                await context.bot.send_message(
+                    chat_id=user_id,
+                    text="در صورت دانلود آن 2 سکه از حساب شما کم میشود! آیا از اینکار مطمئن هستید؟",
+                    reply_markup=reply_markup
+                )
+                context.user_data["youtube_url"] = youtube_url
+                return
+
+            else:
+                keyboard = [
+                    [KeyboardButton("🔙 بازگشت 🔙")]
+                ]
+                inline_markup = ReplyKeyboardMarkup(keyboard)
+
+                await context.bot.send_message(
+                    chat_id=user_id,
+                    text="⚠ لینک ارسال شده اشتباه است! لطفا دوباره مراحل را طی کنید...",
+                    reply_to_message_id=update.effective_message.id,
+                    reply_markup=inline_markup
+                )
+
+                if "youtube_step" in context.user_data:
+                    del context.user_data["youtube_step"]
                 return
 
         #translator
@@ -2703,6 +2776,79 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
             if "soundcloud_url" in context.user_data:
                 del context.user_data["soundcloud_url"]
             return       
+
+    elif query.data == "confirm_download_youtube":
+        if "youtube_step" in context.user_data:
+            title, file_size = get_audio_info(context.user_data.get("youtube_url"))
+
+            if file_size > MAX_FILE_SIZE:
+                    await update.message.reply_text("❌ حجم فایل بیش از ۵۰ مگابایت است! متاسفانه نمیتوان این فایل را دانلود کرد!")
+                    if "youtube_step" in context.user_data:
+                        del context.user_data["youtube_step"]
+                    if "youtube_url" in context.user_data:
+                        del context.user_data["youtube_url"]
+                    return
+            
+            await update.message.reply_text("🔄 در حال دانلود فایل صوتی...")
+
+            ydl_opts = {
+                'format': 'bestaudio/best',
+                'outtmpl': f'{DOWNLOADS_DIR}/{title}.%(ext)s',
+                'quiet': True,
+                'cookiefile': 'cookies.txt',
+            }
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([context.user_data.get("youtube_url")])
+
+            # تبدیل به mp3
+            file_path = os.path.join(DOWNLOADS_DIR, f"{title}.webm")  # فرض بر این است که فرمت ویدیو webm است
+            mp3_file = convert_to_mp3(file_path, title)
+
+            await update.message.reply_audio(open(mp3_file, 'rb'))
+
+            # حذف فایل‌ها در هر صورت
+            os.remove(file_path)
+            os.remove(mp3_file)
+            
+            if "youtube_step" in context.user_data:
+                del context.user_data["youtube_step"]
+            if "youtube_url" in context.user_data:
+                del context.user_data["youtube_url"]
+            return
+        else:
+            await query.edit_message_caption(
+                caption="⚠ این درخواست قبلاً پردازش شده است و دیگر معتبر نیست. لطفاً دوباره مراحل را طی کنید..."
+            )
+
+            if "youtube_step" in context.user_data:
+                del context.user_data["youtube_step"]
+            if "youtube_url" in context.user_data:
+                del context.user_data["youtube_url"]
+            return       
+
+    elif query.data == "cancel_download_youtube":
+        if "youtube_step" in context.user_data:
+            if "youtube_step" in context.user_data:
+                del context.user_data["youtube_step"]
+            if "youtube_url" in context.user_data:
+                del context.user_data["youtube_url"]
+
+            await query.edit_message_caption(
+                caption="درخواست شما با موفقیت لغو شد ✅"
+            )
+
+            return
+        else:
+            await query.edit_message_caption(
+                caption="⚠ این درخواست قبلاً پردازش شده است و دیگر معتبر نیست. لطفاً دوباره مراحل را طی کنید..."
+            )
+
+            if "youtube_step" in context.user_data:
+                del context.user_data["youtube_step"]
+            if "youtube_url" in context.user_data:
+                del context.user_data["youtube_url"]
+            return       
+
 
     #admins
     elif query.data == "confirm_send_user":
