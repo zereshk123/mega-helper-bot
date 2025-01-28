@@ -29,7 +29,7 @@
     },
     {
         "domain": ".youtube.com",
-        "expirationDate": 1769589310.250405,
+        "expirationDate": 1769589500.54463,
         "hostOnly": false,
         "httpOnly": true,
         "name": "__Secure-1PSIDCC",
@@ -38,7 +38,7 @@
         "secure": true,
         "session": false,
         "storeId": "0",
-        "value": "AKEyXzXShxCZ6XD1sKZtxSvlyCIztQ28bGgIwrabL2Frrr5SKERcvRGFge50tEmf7xKnx2RpM6w",
+        "value": "AKEyXzXQTuaDhljzHsIR_h1DEYMZ1AstSbiqcb_Rl57TpUv7obchlKfS7QjXLnixHFZzbTyucOc",
         "id": 3
     },
     {
@@ -85,7 +85,7 @@
     },
     {
         "domain": ".youtube.com",
-        "expirationDate": 1769589310.250464,
+        "expirationDate": 1769589500.544734,
         "hostOnly": false,
         "httpOnly": true,
         "name": "__Secure-3PSIDCC",
@@ -94,7 +94,7 @@
         "secure": true,
         "session": false,
         "storeId": "0",
-        "value": "AKEyXzVricbgrw_Ee9O0cqyPkLgHCcf2PH6ZwCaM__lUO74HAa09jagpKEF4odB2oDiL6hp-sw",
+        "value": "AKEyXzUmGmBiZjOXxoLpfEDqjmlu70dzXg8rhS9LzlNa_xtc_Oy_79j_MchUzj7Fn2Bbskpjpw",
         "id": 7
     },
     {
@@ -155,7 +155,7 @@
     },
     {
         "domain": ".youtube.com",
-        "expirationDate": 1772613303.894736,
+        "expirationDate": 1772613500.664087,
         "hostOnly": false,
         "httpOnly": false,
         "name": "PREF",
@@ -197,7 +197,7 @@
     },
     {
         "domain": ".youtube.com",
-        "expirationDate": 1769589310.250278,
+        "expirationDate": 1769589500.544462,
         "hostOnly": false,
         "httpOnly": false,
         "name": "SIDCC",
@@ -206,7 +206,7 @@
         "secure": false,
         "session": false,
         "storeId": "0",
-        "value": "AKEyXzX-KfxavWzRjBmF07PdrcPAIE0y4o7FXXHCfIh8ixx9woF-GrVFsZ-ddrbSCc5Skr9r6Q",
+        "value": "AKEyXzV17KQnTc3bzEPUR4CgaekKkvv6epJn8ttSfeuMjbKVbU1rHXznU7Ya6V4pyNAH7VljmA",
         "id": 15
     },
     {
@@ -225,10 +225,10 @@
     },
     {
         "domain": ".youtube.com",
-        "expirationDate": 1738053313,
+        "expirationDate": 1738053504,
         "hostOnly": false,
         "httpOnly": false,
-        "name": "ST-xuwub9",
+        "name": "ST-amrb2j",
         "path": "/",
         "sameSite": "unspecified",
         "secure": false,
