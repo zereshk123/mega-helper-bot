@@ -2558,6 +2558,10 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
             try:
                 soundcloud_url = context.user_data.get("soundcloud_query")
                 file_path = download_from_soundcloud(soundcloud_url)
+
+                import os
+                print(os.listdir("downloads/"))
+
                 
                 # delete the coin in account 
                 with sqlite3.connect("data.db") as conn:
