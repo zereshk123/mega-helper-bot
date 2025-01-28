@@ -1430,7 +1430,6 @@ async def echo(update: Update, context: CallbackContext) -> None:
                 )
                 context.user_data["youtube_url"] = youtube_url
                 return
-
             else:
                 keyboard = [
                     [KeyboardButton("🔙 بازگشت 🔙")]
@@ -2632,7 +2631,6 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
                 soundcloud_url = context.user_data.get("soundcloud_query")
                 file_path = download_from_soundcloud(soundcloud_url)
 
-                import os
                 print(os.listdir("downloads/"))
 
                 
