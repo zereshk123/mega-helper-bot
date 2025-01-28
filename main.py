@@ -18,7 +18,7 @@ from spotipy.oauth2 import SpotifyClientCredentials
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton, ChatMember
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext, CallbackQueryHandler, JobQueue
 import sqlite3
-from telegram.error import TimedOut
+from telegram.error import TimedOut, Forbidden
 from time import sleep
 from datetime import datetime, timedelta
 import qrcode 
@@ -2941,13 +2941,15 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
                 cursor.execute("SELECT user_id FROM users")
                 all_user_ids = [auser_id[0] for auser_id in cursor.fetchall()]
         
-            for all_user_id in all_user_ids:
-                await context.bot.send_message(
-                    chat_id=all_user_id,
-                    text=f"{context.user_data.get("send_all_txt")}",
-                )
-
+            try:
+                for all_user_id in all_user_ids:
+                    await context.bot.send_message(
+                        chat_id=all_user_id,
+                        text=f"{context.user_data.get("send_all_txt")}",
+                    )
                 await asyncio.sleep(0.5)
+            except Forbidden:
+                print(f"کاربر {user_id} ربات را مسدود کرده است. پیام ارسال نشد.")
 
             await context.bot.send_message(
                 chat_id=user_id,
