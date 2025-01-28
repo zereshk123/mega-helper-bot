@@ -2821,8 +2821,8 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
                 del context.user_data["youtube_url"]
             return
         else:
-            await query.edit_message_caption(
-                caption="⚠ این درخواست قبلاً پردازش شده است و دیگر معتبر نیست. لطفاً دوباره مراحل را طی کنید..."
+            await query.edit_message_text(
+                "⚠ این درخواست قبلاً پردازش شده است و دیگر معتبر نیست. لطفاً دوباره مراحل را طی کنید..."
             )
 
             if "youtube_step" in context.user_data:
@@ -2839,13 +2839,13 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
                 del context.user_data["youtube_url"]
 
             await query.edit_message_text(
-                caption="درخواست شما با موفقیت لغو شد ✅"
+                "درخواست شما با موفقیت لغو شد ✅"
             )
 
             return
         else:
-            await query.edit_message_caption(
-                caption="⚠ این درخواست قبلاً پردازش شده است و دیگر معتبر نیست. لطفاً دوباره مراحل را طی کنید..."
+            await query.edit_message_text(
+                "⚠ این درخواست قبلاً پردازش شده است و دیگر معتبر نیست. لطفاً دوباره مراحل را طی کنید..."
             )
 
             if "youtube_step" in context.user_data:
