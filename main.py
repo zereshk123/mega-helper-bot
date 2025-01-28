@@ -163,14 +163,14 @@ def download_from_soundcloud(query, output_path="downloads/"):
                         highest_similarity = similarity_score
                         best_match = entry
 
-                if best_match and highest_similarity > 60:
+                if best_match and highest_similarity > 50:
                     download_path = f"{output_path}{best_match['title']}.mp3"
                     ydl.download([best_match['webpage_url']])
                     return download_path
                 else:
-                    raise Exception("⚠ هیچ آهنگ یا ویدیویی با تطابق بالای 70 درصد یافت نشد :(")
+                    raise Exception("⚠️ هیچ آهنگی یافت نشد :(")
             else:
-                raise Exception("⚠متاسفیم... آهنگ مورد نظر شما یافت نشد :(")
+                raise Exception("⚠ متاسفیم... آهنگ مورد نظر شما یافت نشد :(")
 
         except Exception as e:
             raise Exception(f"خطا در دانلود: {str(e)}")
@@ -2651,7 +2651,11 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
                     await query.edit_message_caption(
                         caption="⏳ زمان دانلود به پایان رسید!\n\nلطفاً لینک آهنگ را دوباره ارسال کنید تا بتوانید آن را دانلود کنید."
                     )
-                if error_message == "خطا در دانلود: ⚠️ هیچ آهنگ یا ویدیویی با تطابق بالای 70 درصد یافت نشد :(":
+                elif error_message == "⚠️ هیچ آهنگی یافت نشد :(":
+                    await query.edit_message_caption(
+                        caption="💠 متاسفانه امکان دانلود این اهنگ وجود ندارد..."
+                    )
+                elif error_message == "⚠ متاسفیم... آهنگ مورد نظر شما یافت نشد :(":
                     await query.edit_message_caption(
                         caption="💠 متاسفانه امکان دانلود این اهنگ وجود ندارد..."
                     )
