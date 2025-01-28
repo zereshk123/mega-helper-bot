@@ -280,7 +280,8 @@ async def start(update: Update, context: CallbackContext) -> None:
     if int(admin_type[0]) == 1:
         keyboard.extend([
             [KeyboardButton("🛑 پنل ادمین 🛑")],
-            [KeyboardButton("پیام به همه"), KeyboardButton("تعداد کاربران")],
+            [KeyboardButton("پیام به همه"), KeyboardButton("پیام به کاربر")],
+            [KeyboardButton("تعداد کاربران")],
             [KeyboardButton("کاهش سکه"), KeyboardButton("افزایش سکه")],
             [KeyboardButton("دریافت دیتابیس"), KeyboardButton("اطلاعات کاربر")]
         ])
@@ -951,6 +952,13 @@ async def echo(update: Update, context: CallbackContext) -> None:
         if "read_qr" in context.user_data:
             del context.user_data["read_qr"]
 
+        if "msg_user_step" in context.user_data:
+            del context.user_data["msg_user_step"]
+        if "msg_user_id" in context.user_data:
+            del context.user_data["msg_user_id"]
+        if "txt_send_user" in context.user_data:
+            del context.user_data["txt_send_user"]
+
         if "send_all_step" in context.user_data:
             del context.user_data["send_all_step"]
         if "send_all_txt" in context.user_data:
@@ -1131,6 +1139,30 @@ async def echo(update: Update, context: CallbackContext) -> None:
             reply_markup=inline_markup
         )
         context.user_data["step_about_user"] = True
+        return
+
+    elif text == "پیام به کاربر":
+        #check admin
+        with sqlite3.connect("data.db") as conn:
+            cursor  = conn.cursor()
+            cursor.execute("SELECT admin_type FROM users WHERE user_id = ?", (user_id,))
+            admin_type = cursor.fetchone()
+
+        if int(admin_type[0]) != 1:
+            None
+
+        keyboard = [
+            [KeyboardButton("❌ لغو ❌")]
+        ]
+        inline_markup = ReplyKeyboardMarkup(keyboard)
+        
+        await context.bot.send_message(
+            chat_id=user_id,
+            text="🤖 یوزر آیدی کاربر را وارد کنید:",
+            reply_to_message_id=update.effective_message.id,
+            reply_markup=inline_markup
+        )
+        context.user_data["msg_user_step"] = 1
         return
 
     else:
@@ -1552,6 +1584,81 @@ async def echo(update: Update, context: CallbackContext) -> None:
             return
 
         #admin
+        elif context.user_data.get("msg_user_step") == 1:
+            msg_user_id = update.message.text
+
+            keyboard = [
+                [KeyboardButton("❌ لغو ❌")]
+            ]
+            inline_markup = ReplyKeyboardMarkup(keyboard)
+
+            if not msg_user_id.isdigit():
+                await context.bot.send_message(
+                    chat_id=user_id,
+                    text="❌ یوزر آیدی وارد شده معتبر نیست!",
+                    reply_to_message_id=update.effective_message.id,
+                    reply_markup=inline_markup
+                )
+                if "msg_user_step" in context.user_data:
+                    context.user_data["msg_user_step"]
+                return
+
+            msg_user_id = int(msg_user_id)
+
+            if msg_user_id < 1:
+                await context.bot.send_message(
+                    chat_id=user_id,
+                    text="❌ یوزر آیدی وارد شده اشتباه است!",
+                    reply_to_message_id=update.effective_message.id,
+                    reply_markup=inline_markup
+                )
+                if "msg_user_step" in context.user_data:
+                    context.user_data["msg_user_step"]
+                return
+
+            await context.bot.send_message(
+                chat_id=user_id,
+                text=f"پیام خود را بنویسید:",
+                reply_markup=inline_markup
+            )
+            context.user_data["msg_user_id"] = msg_user_id
+            context.user_data["msg_user_step"] = 2
+            return
+
+        elif context.user_data.get("msg_user_step") == 2:
+            txt_send_user = update.message.text
+
+            keyboard = [
+                [KeyboardButton("❌ لغو ❌")]
+            ]
+            inline_markup = ReplyKeyboardMarkup(keyboard)
+
+            keyboard = [
+                [InlineKeyboardButton("✅ ارسال", callback_data="confirm_send_user")],
+                [InlineKeyboardButton("❌ خیر", callback_data="cancel_send_user")]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            with sqlite3.connect("data.db") as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT name, username FROM users WHERE user_id = ?", (context.user_data.get("msg_user_id"),))
+                msg_user_data = cursor.fetchone()
+                msg_user_data = list(msg_user_data)
+
+            if msg_user_data[1] is not None:
+                msg_username = f"@{msg_user_data[1]}"
+            else:
+                msg_username = "No_username"
+
+            await context.bot.send_message(
+                chat_id=user_id,
+                text=f"🤖 شما در حال ارسال پیام زیر به کاربر {msg_user_data[0]} با آیدی  {msg_username} و یوزر آیدی {context.user_data.get("msg_user_id")} هستید. اگر پیام را تایید میکنید روی ارسال کیلک کنید در غیر این صورت روی لغو کلیک کنید...\n\n📜 پیام شما:\n{txt_send_user}",
+                reply_markup=reply_markup
+            )
+            context.user_data["msg_user_step"] = 3
+            context.user_data["txt_send_user"] = txt_send_user
+            return
+
         elif context.user_data.get("send_all_step"):
             send_all_txt = update.message.text
 
@@ -2549,7 +2656,7 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
                     )
                 else:
                     await query.edit_message_caption(
-                        caption=f"⚠ مشکلی پیش آمده:\n\nلطفا به پشتیبانی اطلاع دهید تا به این مشکل رسیدگی کند...\nERROR_CODE: SOU_CLU"
+                        caption=f"⚠ مشکلی پیش آمده:\n\nلطفا به پشتیبانی اطلاع دهید تا به این مشکل رسیدگی کند...\nERROR_CODE: {error_message}"
                     )
         else:
             await query.edit_message_caption(
@@ -2592,6 +2699,79 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
             return       
 
     #admins
+    elif query.data == "confirm_send_user":
+        if context.user_data.get("msg_user_step") == 3:
+            keyboard = [
+                [KeyboardButton("🔙 بازگشت 🔙")]
+            ]
+            inline_markup = ReplyKeyboardMarkup(keyboard)
+
+            await context.bot.send_message(
+                chat_id=context.user_data.get("msg_user_id"),
+                text=f"{context.user_data.get("txt_send_user")}",
+            )
+
+            await context.bot.send_message(
+                chat_id=user_id,
+                text=f"✅ پیام شما با موفقیت برای کاربر ارسال شد...",
+                reply_markup=inline_markup
+            )
+
+            if "msg_user_step" in context.user_data:
+                del context.user_data["msg_user_step"]
+            if "msg_user_id" in context.user_data:
+                del context.user_data["msg_user_id"]
+            if "txt_send_user" in context.user_data:
+                del context.user_data["txt_send_user"]
+            return
+        else:
+            await context.bot.send_message(
+                chat_id=user_id,
+                text="⚠ این درخواست قبلاً پردازش شده است و دیگر معتبر نیست. لطفاً دوباره مراحل را طی کنید..."
+            )
+
+            if "msg_user_step" in context.user_data:
+                del context.user_data["msg_user_step"]
+            if "msg_user_id" in context.user_data:
+                del context.user_data["msg_user_id"]
+            if "txt_send_user" in context.user_data:
+                del context.user_data["txt_send_user"]
+            return 
+
+    elif query.data == "cancel_send_user":
+        if context.user_data.get("msg_user_step") == 3:
+            keyboard = [
+                [KeyboardButton("🔙 بازگشت 🔙")]
+            ]
+            inline_markup = ReplyKeyboardMarkup(keyboard)
+
+            await context.bot.send_message(
+                chat_id=user_id,
+                text=f"✅ عملیات با موفقیت لغو شد.",
+                reply_markup=inline_markup
+            )
+
+            if "msg_user_step" in context.user_data:
+                del context.user_data["msg_user_step"]
+            if "msg_user_id" in context.user_data:
+                del context.user_data["msg_user_id"]
+            if "txt_send_user" in context.user_data:
+                del context.user_data["txt_send_user"]
+            return
+        else:
+            await context.bot.send_message(
+                chat_id=user_id,
+                text="⚠ این درخواست قبلاً پردازش شده است و دیگر معتبر نیست. لطفاً دوباره مراحل را طی کنید..."
+            )
+
+            if "msg_user_step" in context.user_data:
+                del context.user_data["msg_user_step"]
+            if "msg_user_id" in context.user_data:
+                del context.user_data["msg_user_id"]
+            if "txt_send_user" in context.user_data:
+                del context.user_data["txt_send_user"]
+            return 
+
     elif query.data == "confirm_send_all":
         if context.user_data.get("send_all_step") == 2:
             keyboard = [
