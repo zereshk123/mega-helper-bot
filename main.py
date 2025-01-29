@@ -2805,12 +2805,39 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
             file_path = os.path.join(DOWNLOADS_DIR, f"{title}.webm")  # فرض بر این است که فرمت ویدیو webm است
             mp3_file = convert_to_mp3(file_path, title)
 
+            # delete the coin in account 
+            with sqlite3.connect("data.db") as conn:
+                cursor = conn.cursor()
+                #get the number of coins
+                cursor.execute('SELECT coins FROM users WHERE user_id = ?', (user_id,))
+                old_coins = cursor.fetchone()
+
+                if old_coins[0]-2 >= 0:
+                    new_coins = old_coins[0] - 2
+                    #set the new number of coins
+                    cursor.execute('UPDATE users SET coins = ? WHERE user_id = ?', (new_coins ,user_id,))
+                    conn.commit()
+                else:
+                    await context.bot.send_message(
+                        chat_id=user_id,
+                        text="⚠ سکه های شما کافی نمیباشد!\nشما میتوانید از طریق بخش افزایش سکه تعداد سکه های خود را افزایش دهید...",
+                    )
+                    
+                    if "youtube_step" in context.user_data:
+                        del context.user_data["youtube_step"]
+                    if "youtube_url" in context.user_data:
+                        del context.user_data["youtube_url"]
+
+                    os.remove(file_path)
+                    os.remove(mp3_file)
+                    return
+
             with open(mp3_file, "rb") as audio_file:
                 await context.bot.send_audio(
                     chat_id=user_id,
                     audio=audio_file
                 )
-
+            
             # حذف فایل‌ها در هر صورت
             os.remove(file_path)
             os.remove(mp3_file)
