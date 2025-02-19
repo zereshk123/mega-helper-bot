@@ -2,6 +2,7 @@ import sys
 sys.stdout.reconfigure(encoding='utf-8')
 
 from bs4 import BeautifulSoup
+import traceback
 from fuzzywuzzy import fuzz
 import requests
 import instaloader
@@ -27,7 +28,7 @@ from pyzbar.pyzbar import decode
 from googletrans import Translator
 
 import pytz
-tehran_tz = pytz.timezone('Asia/Tehran')    
+tehran_tz = pytz.timezone('Asia/Tehran')   
 
 translator = Translator()
 
@@ -85,9 +86,9 @@ def get_soundcloud_track_info(soundcloud_url):
 
         return track_name, artist_name, album_name, release_date, cover_image
 
-def get_spotify_track_info(spotify_url):
+def get_spotify_track_info(spotify_single_url):
     sp = spotipy.Spotify(auth_manager=SpotifyClientCredentials(client_id=SPOTIPY_CLIENT_ID, client_secret=SPOTIPY_CLIENT_SECRET))
-    track_id = spotify_url.split("/")[-1].split("?")[0]
+    track_id = spotify_single_url.split("/")[-1].split("?")[0]
     track_info = sp.track(track_id)
     track_name = track_info["name"]
     artist_name = track_info["artists"][0]["name"]
@@ -96,6 +97,61 @@ def get_spotify_track_info(spotify_url):
     cover_image = track_info["album"]["images"][0]["url"]
     
     return track_name, artist_name, album_name, release_date, cover_image
+
+def get_playlist_info(playlist_url, client_id, client_secret):
+    if "open.spotify.com/playlist/" not in playlist_url:
+        raise ValueError("❌ لینک ارسال شده اشتباه است! لطفاً یک لینک معتبر از اسپاتیفای ارسال کنید.")
+    
+    sp = spotipy.Spotify(auth_manager=SpotifyClientCredentials(client_id=client_id, client_secret=client_secret))
+    playlist_id = playlist_url.split('/')[-1].split('?')[0]
+    playlist_info = sp.playlist(playlist_id)
+    
+    playlist_name = playlist_info['name']
+    playlist_owner = playlist_info['owner']['display_name']
+    playlist_image = playlist_info['images'][0]['url'] if playlist_info['images'] else None
+    track_count = playlist_info['tracks']['total']
+    
+    return playlist_id, playlist_name, playlist_owner, playlist_image, track_count
+
+def get_playlist_tracks(playlist_id, client_id, client_secret):
+    sp = spotipy.Spotify(auth_manager=SpotifyClientCredentials(client_id=client_id, client_secret=client_secret))
+    results = sp.playlist_tracks(playlist_id)
+    tracks = []
+    for item in results['items']:
+        track = item['track']
+        track_name = track['name']
+        artist_name = track['artists'][0]['name']
+        tracks.append(f"{track_name} {artist_name}")
+    return tracks
+
+def download_playlist(query, output_path="downloads/"):
+    if not os.path.exists(output_path):
+        os.makedirs(output_path)
+    
+    options = {
+        'format': 'bestaudio/best',
+        'outtmpl': f'{output_path}%(title)s.%(ext)s',
+        'postprocessors': [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'mp3',
+            'preferredquality': '192',
+        }],
+        'cookies': 'cookies.txt',
+        'quiet': False,
+        'noplaylist': True
+    }
+    
+    with yt_dlp.YoutubeDL(options) as ydl:
+        try:
+            search_results = ydl.extract_info(f"ytsearch:{query}", download=False)
+            if 'entries' in search_results and search_results['entries']:
+                best_match = search_results['entries'][0]
+                ydl.download([best_match['webpage_url']])
+                return f"{output_path}{best_match['title']}.mp3"
+            else:
+                print(f"⚠ آهنگ '{query}' یافت نشد.")
+        except Exception as e:
+            print(f"خطا در دانلود {query}: {str(e)}")
 
 def download_from_spotify(query, output_path="downloads/"):
     if not os.path.exists(output_path):
@@ -323,7 +379,8 @@ async def help(update: Update, context: CallbackContext) -> None:
 async def echo(update: Update, context: CallbackContext) -> None:
     user_id = str(update.effective_user.id)
     text = update.message.text
-    spotify_pattern = r'https?://open\.spotify\.com/(track|album|playlist|artist)/[a-zA-Z0-9]+'
+    spotify_single_pattern = r'https?://open\.spotify\.com/(track|artist)/[a-zA-Z0-9]+'
+    spotify_playlist_pattern = r'https?://open\.spotify\.com/(playlist)/[a-zA-Z0-9]+'
     soudncloud_pattern = r'https?://(www\.)?soundcloud\.com/[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+(\?.*)?'
     
     # check channels
@@ -699,8 +756,8 @@ async def echo(update: Update, context: CallbackContext) -> None:
     elif text == "📥 دانـلودر 📥":
         keyboard = [
             [KeyboardButton("🔴 (پست)اینستاگرام 🔴"), KeyboardButton("🔴 پینترست(عکس) 🔴")],
-            [KeyboardButton("🟠 ساوند کلاود 🟠"), KeyboardButton("🟢 اسپاتیفای 🟢")],
-            [KeyboardButton("🔴 یوتیوب 🔴")],
+            [KeyboardButton("🟢 اسپاتیفای پلی لیست 🟢"), KeyboardButton("🟢 اسپاتیفای 🟢")], 
+            [KeyboardButton("🔴 یوتیوب 🔴"), KeyboardButton("🟠 ساوند کلاود 🟠")],
             [KeyboardButton("🔙 بازگشت 🔙")]
         ]
         inline_markup = ReplyKeyboardMarkup(keyboard)
@@ -713,7 +770,7 @@ async def echo(update: Update, context: CallbackContext) -> None:
         )
         return
 
-    elif text == "🟢 اسپاتیفای 🟢":
+    elif text == "🟢 اسپاتیفای تکی 🟢":
         keyboard = [
             [KeyboardButton("❌ لغو ❌")]
         ]
@@ -726,7 +783,23 @@ async def echo(update: Update, context: CallbackContext) -> None:
             reply_markup=inline_markup
         )
 
-        context.user_data["spotify_step"] = 1
+        context.user_data["spotify_single_step"] = 1
+        return
+
+    elif text == "🟢 اسپاتیفای پلی لیست 🟢":
+        keyboard = [
+            [KeyboardButton("❌ لغو ❌")]
+        ]
+        inline_markup = ReplyKeyboardMarkup(keyboard)
+
+        await context.bot.send_message(
+            chat_id=user_id,
+            text="💠لینک پلی لیست مد نظر خود را بفرستید:\n\n⚠ هر پلی لیست فقط تا 50 اهنگ دانلود میشود و سکه ها به تعداد آهنگ ها کم می شود!",
+            reply_to_message_id=update.effective_message.id,
+            reply_markup=inline_markup
+        )
+
+        context.user_data["spotify_playlist_step"] = 1
         return
 
     elif text == "🔴 (پست)اینستاگرام 🔴":
@@ -948,12 +1021,12 @@ async def echo(update: Update, context: CallbackContext) -> None:
             return
 
     elif text == "❌ لغو ❌":
-        if "spotify_step" in context.user_data:
-            del context.user_data["spotify_step"]
-        if "spotify_query" in context.user_data:
-            del context.user_data["spotify_query"]
-        if "spotify_url" in context.user_data:
-            del context.user_data["spotify_url"]
+        if "spotify_single_step" in context.user_data:
+            del context.user_data["spotify_single_step"]
+        if "spotify_single_query" in context.user_data:
+            del context.user_data["spotify_single_query"]
+        if "spotify_single_url" in context.user_data:
+            del context.user_data["spotify_single_url"]
 
         if "pin_step" in context.user_data:
             del context.user_data["pin_step"]
@@ -1235,30 +1308,30 @@ async def echo(update: Update, context: CallbackContext) -> None:
             del user_support_progress[user_id]
             return
 
-        elif "spotify_step" in context.user_data:
-            if re.match(spotify_pattern, text) is not None:
-                spotify_url = update.message.text.strip()
+        elif "spotify_single_step" in context.user_data:
+            if re.match(spotify_single_pattern, text) is not None:
+                spotify_single_url = update.message.text.strip()
                 await update.message.reply_text("💠 در حال پردازش لینک...")
                 
-                track_name, artist_name, album_name, release_date, cover_image = get_spotify_track_info(spotify_url)
+                track_name, artist_name, album_name, release_date, cover_image = get_spotify_track_info(spotify_single_url)
                 query = f"{track_name} {artist_name}"
 
-                context.user_data["spotify_step"] = 2
-                context.user_data["spotify_query"] = query
-                context.user_data["spotify_url"] = spotify_url
+                context.user_data["spotify_single_step"] = 2
+                context.user_data["spotify_single_query"] = query
+                context.user_data["spotify_single_url"] = spotify_single_url
                 
                 caption = (
                     f"🎵 آهنگ: {track_name}\n"
                     f"🎤 هنرمند: {artist_name}\n"
                     f"💿 آلبوم: {album_name}\n"
-                    f'🔗 <a href="{spotify_url}">لینک آهنگ</a>\n'
+                    f'🔗 <a href="{spotify_single_url}">لینک آهنگ</a>\n'
                     f"📅 تاریخ انتشار: {release_date}\n\n"
                     "💠در صورت دانلود آهنگ 2 سکه از حساب شما کم میشود! آیا می‌خواهید این آهنگ را دانلود کنید؟"
                 )
 
                 keyboard = [
-                    [InlineKeyboardButton("✅ بله", callback_data="confirm_download_spotify")],
-                    [InlineKeyboardButton("❌ خیر", callback_data="cancel_download_spotify")]
+                    [InlineKeyboardButton("✅ بله", callback_data="confirm_download_spotify_single")],
+                    [InlineKeyboardButton("❌ خیر", callback_data="cancel_download_spotify_single")]
                 ]
                 reply_markup = InlineKeyboardMarkup(keyboard)
                 
@@ -1281,15 +1354,63 @@ async def echo(update: Update, context: CallbackContext) -> None:
                     reply_markup=inline_markup
                 )
 
-                if "spotify_step" in context.user_data:
-                    del context.user_data["spotify_step"]
-                if "spotify_query" in context.user_data:
-                    del context.user_data["spotify_query"]
-                if "spotify_url" in context.user_data:
-                    del context.user_data["spotify_url"]
+                if "spotify_single_step" in context.user_data:
+                    del context.user_data["spotify_single_step"]
+                if "spotify_single_query" in context.user_data:
+                    del context.user_data["spotify_single_query"]
+                if "spotify_single_url" in context.user_data:
+                    del context.user_data["spotify_single_url"]
 
                 return
 
+        elif "spotify_playlist_step" in context.user_data:
+            if re.match(spotify_playlist_pattern, text) is not None:
+                spotify_playlist_url = update.message.text.strip()
+                await update.message.reply_text("💠 در حال پردازش لینک...")
+                
+                playlist_id, playlist_name, playlist_owner, playlist_image, track_count = get_playlist_info(spotify_playlist_url, SPOTIPY_CLIENT_ID, SPOTIPY_CLIENT_SECRET)
+                
+                context.user_data["playlist_id"] = playlist_id
+                context.user_data["playlist_track_count"] = track_count
+            
+                caption = (f"🎵 پلی‌لیست: {playlist_name}\n"
+                   f"👤 ساخته‌شده توسط: {playlist_owner}\n"
+                   f"🎶 تعداد آهنگ‌ها: {track_count}\n"
+                   "\n✅ آیا می‌خواهید همه آهنگ‌های این پلی‌لیست را دانلود کنید؟"
+                )
+                
+                keyboard = [
+                    [InlineKeyboardButton("✅ بله", callback_data="confirm_download_spotify_playlist")],
+                    [InlineKeyboardButton("❌ خیر", callback_data="cancel_download_spotify_playlist")]
+                ]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+                        
+                if playlist_image:
+                    await update.message.reply_photo(photo=playlist_image, caption=caption, reply_markup=reply_markup)
+                else:
+                    await update.message.reply_text(text=caption, reply_markup=reply_markup)           
+            else:
+                keyboard = [
+                    [KeyboardButton("🔙 بازگشت 🔙")]
+                ]
+                inline_markup = ReplyKeyboardMarkup(keyboard)
+
+                await context.bot.send_message(
+                    chat_id=user_id,
+                    text="⚠ لینک ارسال شده اشتباه است! لطفا دوباره مراحل را طی کنید...",
+                    reply_to_message_id=update.effective_message.id,
+                    reply_markup=inline_markup
+                )
+
+                if "spotify_playlist_step" in context.user_data:
+                    del context.user_data["spotify_playlist_step"]
+                if "spotify_playlist_query" in context.user_data:
+                    del context.user_data["spotify_playlist_query"]
+                if "spotify_playlist_url" in context.user_data:
+                    del context.user_data["spotify_playlist_url"]
+
+                return
+            
         elif "pin_step" in context.user_data:
             if not any(substring in text for substring in ["pinterest.com/pin/", "pin.it/"]):
                 await update.message.reply_text("❌ لطفاً یک لینک معتبر از پینترست ارسال کنید.")
@@ -2184,121 +2305,102 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
     user_id = query.from_user.id
     await query.answer()
 
-    if query.data == "confirm_download_spotify":
-        if "spotify_step" in context.user_data:
+    if query.data == "confirm_download_spotify_single":
+        if "spotify_single_step" in context.user_data:
             await query.edit_message_caption(
                 caption="🎧 در حال دانلود آهنگ..."
             )
 
-            try:
-                query_text = context.user_data.get("spotify_query")
-                file_path = download_from_spotify(query_text)
-                
-                # delete the coin in account 
-                with sqlite3.connect("data.db") as conn:
-                    cursor = conn.cursor()
-                    #get the number of coins
-                    cursor.execute('SELECT coins FROM users WHERE user_id = ?', (user_id,))
-                    old_coins = cursor.fetchone()
-
-                    if old_coins[0]-2 >= 0:
-                        new_coins = old_coins[0] - 2
-                        #set the new number of coins
-                        cursor.execute('UPDATE users SET coins = ? WHERE user_id = ?', (new_coins ,user_id,))
-                        conn.commit()
-                    else:
-                        await context.bot.send_message(
-                            chat_id=user_id,
-                            text="⚠ سکه های شما کافی نمیباشد!\nشما میتوانید از طریق بخش افزایش سکه تعداد سکه های خود را افزایش دهید...",
-                        )
-                        if "spotify_step" in context.user_data:
-                            del context.user_data["spotify_step"]
-                        if "spotify_query" in context.user_data:
-                            del context.user_data["spotify_query"]
-                        if "spotify_url" in context.user_data:
-                            del context.user_data["spotify_url"]
-
-                        return
+            query_text = context.user_data.get("spotify_single_query")
+            file_path = download_from_spotify(query_text)
             
-                await context.bot.send_message(
-                    chat_id=user_id,
-                    text="✅ آهنگ با موفقیت دانلود شد👌\nدر حال ارسال فایل..."
-                )
+            # delete the coin in account 
+            with sqlite3.connect("data.db") as conn:
+                cursor = conn.cursor()
+                #get the number of coins
+                cursor.execute('SELECT coins FROM users WHERE user_id = ?', (user_id,))
+                old_coins = cursor.fetchone()
 
-                caption = (
-                    f'<a href="https://t.me/Megaa_helperbot">@megaa_helperbot</a> | <a href="{context.user_data.get("spotify_url")}">Music link</a>'
-                )
-
-                #send to channel
-                bot = context.bot
-                with open(file_path, 'rb') as audio_file:
-                    await bot.send_audio(
-                        chat_id=config["channels"][0],
-                        audio=audio_file,
-                        caption=caption,
-                        parse_mode="HTML"
-                    )
-
-                #send to user
-                with open(file_path, 'rb') as audio_file:
-                    await context.bot.send_audio(
-                        chat_id=user_id,
-                        audio=audio_file,
-                        caption=caption,
-                        parse_mode="HTML"
-                    )
-
-                os.remove(file_path)
-
-                if "spotify_step" in context.user_data:
-                    del context.user_data["spotify_step"]
-                if "spotify_query" in context.user_data:
-                    del context.user_data["spotify_query"]
-                if "spotify_url" in context.user_data:
-                    del context.user_data["spotify_url"]
-
-                return
-            
-            except Exception as e:
-                if "spotify_step" in context.user_data:
-                    del context.user_data["spotify_step"]
-                if "spotify_query" in context.user_data:
-                    del context.user_data["spotify_query"]
-                if "spotify_url" in context.user_data:
-                    del context.user_data["spotify_url"]
- 
-                error_message = str(e)
-
-                if error_message == "1008096572":
-                    await query.edit_message_caption(
-                        caption="⏳ زمان دانلود به پایان رسید!\n\nلطفاً لینک آهنگ را دوباره ارسال کنید تا بتوانید آن را دانلود کنید."
-                    )
+                if old_coins[0]-2 >= 0:
+                    new_coins = old_coins[0] - 2
+                    #set the new number of coins
+                    cursor.execute('UPDATE users SET coins = ? WHERE user_id = ?', (new_coins ,user_id,))
+                    conn.commit()
                 else:
-                    await query.edit_message_caption(
-                        caption=f"⚠ مشکلی پیش آمده:\n\n{error_message}"
+                    await context.bot.send_message(
+                        chat_id=user_id,
+                        text="⚠ سکه های شما کافی نمیباشد!\nشما میتوانید از طریق بخش افزایش سکه تعداد سکه های خود را افزایش دهید...",
                     )
+                    if "spotify_single_step" in context.user_data:
+                        del context.user_data["spotify_single_step"]
+                    if "spotify_single_query" in context.user_data:
+                        del context.user_data["spotify_single_query"]
+                    if "spotify_single_url" in context.user_data:
+                        del context.user_data["spotify_single_url"]
+
+                    return
+        
+            await context.bot.send_message(
+                chat_id=user_id,
+                text="✅ آهنگ با موفقیت دانلود شد👌\nدر حال ارسال فایل..."
+            )
+
+            caption = (
+                f'<a href="https://t.me/Megaa_helperbot">@megaa_helperbot</a> | <a href="{context.user_data.get("spotify_single_url")}">Music link</a>'
+            )
+
+            #send to channel
+            bot = context.bot
+            with open(file_path, 'rb') as audio_file:
+                await bot.send_audio(
+                    chat_id=config["channels"][0],
+                    audio=audio_file,
+                    caption=caption,
+                    parse_mode="HTML"
+                )
+
+            #send to user
+            with open(file_path, 'rb') as audio_file:
+                await context.bot.send_audio(
+                    chat_id=user_id,
+                    audio=audio_file,
+                    caption=caption,
+                    parse_mode="HTML"
+                )
+
+            os.remove(file_path)
+
+            if "spotify_single_step" in context.user_data:
+                del context.user_data["spotify_single_step"]
+            if "spotify_single_query" in context.user_data:
+                del context.user_data["spotify_single_query"]
+            if "spotify_single_url" in context.user_data:
+                del context.user_data["spotify_single_url"]
+
+            return
+        
         else:
             await query.edit_message_caption(
                 caption="⚠ مشکلی پیش آمده...\nلطفا دوباره تلاش کنید",
             )
 
-            if "spotify_step" in context.user_data:
-                del context.user_data["spotify_step"]
-            if "spotify_query" in context.user_data:
-                del context.user_data["spotify_query"]
-            if "spotify_url" in context.user_data:
-                del context.user_data["spotify_url"]
+            if "spotify_single_step" in context.user_data:
+                del context.user_data["spotify_single_step"]
+            if "spotify_single_query" in context.user_data:
+                del context.user_data["spotify_single_query"]
+            if "spotify_single_url" in context.user_data:
+                del context.user_data["spotify_single_url"]
 
             return
 
-    elif query.data == "cancel_download_spotify":
-        if "spotify_step" in context.user_data:
-            if "spotify_step" in context.user_data:
-                del context.user_data["spotify_step"]
-            if "spotify_query" in context.user_data:
-                del context.user_data["spotify_query"]
-            if "spotify_url" in context.user_data:
-                del context.user_data["spotify_url"]
+    elif query.data == "cancel_download_spotify_single":
+        if "spotify_single_step" in context.user_data:
+            if "spotify_single_step" in context.user_data:
+                del context.user_data["spotify_single_step"]
+            if "spotify_single_query" in context.user_data:
+                del context.user_data["spotify_single_query"]
+            if "spotify_single_url" in context.user_data:
+                del context.user_data["spotify_single_url"]
 
             await query.edit_message_caption(
                 caption="درخواست شما با موفقیت لغو شد ✅"
@@ -2310,12 +2412,103 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
                 caption="⚠ این درخواست قبلاً پردازش شده است و دیگر معتبر نیست. لطفاً دوباره مراحل را طی کنید..."
             )
 
-            if "spotify_step" in context.user_data:
-                del context.user_data["spotify_step"]
-            if "spotify_query" in context.user_data:
-                del context.user_data["spotify_query"]
-            if "spotify_url" in context.user_data:
-                del context.user_data["spotify_url"]
+            if "spotify_single_step" in context.user_data:
+                del context.user_data["spotify_single_step"]
+            if "spotify_single_query" in context.user_data:
+                del context.user_data["spotify_single_query"]
+            if "spotify_single_url" in context.user_data:
+                del context.user_data["spotify_single_url"]
+
+            return       
+
+    if query.data == "confirm_download_spotify_playlist":
+        if "playlist_id" in context.user_data:
+            await query.edit_message_caption(
+                caption="⏳ در حال دریافت لیست آهنگ‌ها..."
+            )
+            
+            playlist_id = context.user_data.get("playlist_id")
+            tracks = get_playlist_tracks(playlist_id, SPOTIPY_CLIENT_ID, SPOTIPY_CLIENT_SECRET)
+            await query.message.reply_text(f"{len(tracks)} آهنگ پیدا شد. در حال دانلود...")
+            
+            downloaded_files = []
+            for track in tracks:
+                file_path = download_playlist(track)
+                if file_path and os.path.exists(file_path):
+                    downloaded_files.append(file_path)
+                    
+            if downloaded_files:
+                for file_path in downloaded_files:
+                    await context.bot.send_audio(chat_id=query.message.chat_id, audio=open(file_path, 'rb'))
+                    
+                # delete the coin in account 
+                with sqlite3.connect("data.db") as conn:
+                    cursor = conn.cursor()
+                    #get the number of coins
+                    cursor.execute('SELECT coins FROM users WHERE user_id = ?', (user_id,))
+                    old_coins = cursor.fetchone()
+
+                    if old_coins[0]-context.user_data.get("playlist_track_count") >= 0:
+                        new_coins = old_coins[0]-context.user_data.get("playlist_track_count")
+                        #set the new number of coins
+                        cursor.execute('UPDATE users SET coins = ? WHERE user_id = ?', (new_coins ,user_id,))
+                        conn.commit()
+                    else:
+                        await context.bot.send_message(
+                            chat_id=user_id,
+                            text="⚠ سکه های شما کافی نمیباشد!\nشما میتوانید از طریق بخش افزایش سکه تعداد سکه های خود را افزایش دهید...",
+                        )
+                        if "spotify_playlist_step" in context.user_data:
+                            del context.user_data["spotify_playlist_step"]
+                        if "spotify_playlist_query" in context.user_data:
+                            del context.user_data["spotify_playlist_query"]
+                        if "spotify_playlist_url" in context.user_data:
+                            del context.user_data["spotify_playlist_url"]
+
+                        return
+    
+                await query.message.reply_text("✅ همه آهنگ‌ ها ارسال شدند!")
+            else:
+                await query.message.reply_text("❌ هیچ آهنگی دانلود نشد.")
+     
+        else:
+            await query.edit_message_caption(
+                caption="⚠ مشکلی پیش آمده...\nلطفا دوباره تلاش کنید",
+            )
+            if "spotify_playlist_step" in context.user_data:
+                del context.user_data["spotify_playlist_step"]
+            if "spotify_playlist_query" in context.user_data:
+                del context.user_data["spotify_playlist_query"]
+            if "spotify_playlist_url" in context.user_data:
+                del context.user_data["spotify_playlist_url"]
+
+            return
+
+    elif query.data == "cancel_download_spotify_playlist":
+        if "spotify_playlist_step" in context.user_data:
+            if "spotify_playlist_step" in context.user_data:
+                del context.user_data["spotify_playlist_step"]
+            if "spotify_playlist_query" in context.user_data:
+                del context.user_data["spotify_playlist_query"]
+            if "spotify_playlist_url" in context.user_data:
+                del context.user_data["spotify_playlist_url"]
+
+            await query.edit_message_caption(
+                caption="درخواست شما با موفقیت لغو شد ✅"
+            )
+
+            return
+        else:
+            await query.edit_message_caption(
+                caption="⚠ این درخواست قبلاً پردازش شده است و دیگر معتبر نیست. لطفاً دوباره مراحل را طی کنید..."
+            )
+
+            if "spotify_playlist_step" in context.user_data:
+                del context.user_data["spotify_playlist_step"]
+            if "spotify_playlist_query" in context.user_data:
+                del context.user_data["spotify_playlist_query"]
+            if "spotify_playlist_url" in context.user_data:
+                del context.user_data["spotify_playlist_url"]
 
             return       
 
@@ -2651,12 +2844,12 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
                             chat_id=user_id,
                             text="⚠ سکه های شما کافی نمیباشد!\nشما میتوانید از طریق بخش افزایش سکه تعداد سکه های خود را افزایش دهید...",
                         )
-                        if "spotify_step" in context.user_data:
-                            del context.user_data["spotify_step"]
-                        if "spotify_query" in context.user_data:
-                            del context.user_data["spotify_query"]
-                        if "spotify_url" in context.user_data:
-                            del context.user_data["spotify_url"]
+                        if "spotify_single_step" in context.user_data:
+                            del context.user_data["spotify_single_step"]
+                        if "spotify_single_query" in context.user_data:
+                            del context.user_data["spotify_single_query"]
+                        if "spotify_single_url" in context.user_data:
+                            del context.user_data["spotify_single_url"]
 
                         return
             
@@ -3225,6 +3418,23 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
                 del context.user_data["remove_num_coins"]
             return  
 
+async def error_handler(update: Update, context: CallbackContext):
+    user_id = str(update.effective_user.id)
+    error_message = traceback.format_exception(None, context.error, context.error.__traceback__)
+    error_text = ''.join(error_message)
+    bot = context.bot
+    
+    await bot.send_message(
+        chat_id=user_id,
+        text=f"🛑 مشکلی در ربات پیش آمده...\nلطفا بعدا دوباره تست کنید."
+    )
+    
+    await bot.send_message(
+        chat_id=config["dev_user_id"],
+        text=f"🚨 خطا در ربات:\n\n`{error_text}`",
+        parse_mode="markdown"
+    )
+
 async def backup_db(context):
     bot = context.bot
 
@@ -3240,6 +3450,7 @@ def main():
     print("[BOT] initializing...")
     application = Application.builder().token(TOKEN).concurrent_updates(True).build()
     job_queue: JobQueue = application.job_queue
+    application.add_error_handler(error_handler)
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
