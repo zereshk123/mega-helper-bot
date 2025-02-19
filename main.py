@@ -136,7 +136,7 @@ def download_playlist(query, output_path="downloads/"):
             'preferredcodec': 'mp3',
             'preferredquality': '192',
         }],
-        'cookies': 'cookies.txt',
+        'cookies-from-browser': 'chrome',
         'quiet': False,
         'noplaylist': True
     }
@@ -2469,8 +2469,7 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
     
                 await query.message.reply_text("✅ همه آهنگ‌ ها ارسال شدند!")
             else:
-                await query.message.reply_text("❌ هیچ آهنگی دانلود نشد.")
-     
+                await query.message.reply_text("❌ هیچ آهنگی دانلود نشد.")     
         else:
             await query.edit_message_caption(
                 caption="⚠ مشکلی پیش آمده...\nلطفا دوباره تلاش کنید",
