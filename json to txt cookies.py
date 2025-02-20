@@ -23,6 +23,7 @@ def json_to_netscape(json_file, netscape_file):
             f.write(f"{domain}\tTRUE\t{path}\t{expiry}\t{secure}\t{name}\t{value}\n")
 
 # استفاده از این تابع
+print("save cookies")
 json_to_netscape("cookies.json", "cookies.txt")
 
 # import yt_dlp

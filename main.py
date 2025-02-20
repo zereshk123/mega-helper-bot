@@ -136,7 +136,7 @@ def download_playlist(query, output_path="downloads/"):
             'preferredcodec': 'mp3',
             'preferredquality': '192',
         }],
-        'cookies-from-browser': 'chrome',
+        'cookies': 'cookies.txt',
         'quiet': False,
         'noplaylist': True
     }
