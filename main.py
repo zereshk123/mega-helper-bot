@@ -3419,23 +3419,13 @@ async def handle_confirmation(update: Update, context: CallbackContext) -> None:
                 del context.user_data["remove_num_coins"]
             return  
 
-async def error_handler(update: Update, context: CallbackContext):
-    if update.effective_user:
-        user_id = str(update.effective_user.id)
-        error_message = traceback.format_exception(None, context.error, context.error.__traceback__)
-        error_text = ''.join(error_message)
-        bot = context.bot
-        
-        await bot.send_message(
-            chat_id=user_id,
-            text=f"🛑 مشکلی در ربات پیش آمده...\nلطفا بعدا دوباره تست کنید."
+async def error_handler(update: Update, context: CallbackContext) -> None:
+    # بررسی وجود update و effective_user
+    if update and getattr(update, "effective_user", None):
+        await context.bot.send_message(
+            chat_id=update.effective_user.id,
+            text="یه خطایی پیش اومده! تیم پشتیبانی در جریان قرار گرفت."
         )
-    
-    await bot.send_message(
-        chat_id=config["dev_user_id"],
-        text=f"🚨 خطا در ربات:\n\n`{error_text}`",
-        parse_mode="markdown"
-    )
 
 async def backup_db(context):
     bot = context.bot
