@@ -952,6 +952,8 @@ async def echo(update: Update, context: CallbackContext) -> None:
             keyboard = [
                 [KeyboardButton("🔙 بازگشت 🔙")]
             ]
+            
+            inline_markup = InlineKeyboardMarkup(keyboard)
 
             await context.bot.send_message(
                 chat_id=user_id,
