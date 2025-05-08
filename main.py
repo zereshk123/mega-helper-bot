@@ -756,7 +756,7 @@ async def echo(update: Update, context: CallbackContext) -> None:
     elif text == "📥 دانـلودر 📥":
         keyboard = [
             [KeyboardButton("🔴 (پست)اینستاگرام 🔴"), KeyboardButton("🔴 پینترست(عکس) 🔴")],
-            [KeyboardButton("🟢 اسپاتیفای پلی لیست 🟢"), KeyboardButton("🟢 اسپاتیفای 🟢")], 
+            [KeyboardButton("🟢 اسپاتیفای پلی لیست 🟢"), KeyboardButton("🟢 اسپاتیفای تکی 🟢")], 
             [KeyboardButton("🔴 یوتیوب 🔴"), KeyboardButton("🟠 ساوند کلاود 🟠")],
             [KeyboardButton("🔙 بازگشت 🔙")]
         ]
@@ -833,7 +833,7 @@ async def echo(update: Update, context: CallbackContext) -> None:
 
         context.user_data["pin_step"] = 1
         return
-
+    
     elif text == "🟠 ساوند کلاود 🟠":
         keyboard = [
             [KeyboardButton("❌ لغو ❌")]
@@ -1537,7 +1537,7 @@ async def echo(update: Update, context: CallbackContext) -> None:
                 return
 
         elif "youtube_step" in context.user_data:
-            if not any(substring in text for substring in ["youtube.com/"]):
+            if any(substring in text for substring in ["youtube.com/", "youtu.be/"]):
                 youtube_url = update.message.text
 
                 keyboard = [
