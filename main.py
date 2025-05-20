@@ -3436,15 +3436,15 @@ async def error_handler(update: Update, context: CallbackContext):
         parse_mode="markdown"
     )
 
-async def backup_db(context):
-    bot = context.bot
+# async def backup_db(context):
+#     bot = context.bot
 
-    if os.path.exists("data.db"):
-        await bot.send_document(
-            chat_id=config["backup_db_channel"],
-            document=open("data.db", 'rb'),
-            caption="📁 بکاپ دیتابیس"
-        )
+#     if os.path.exists("data.db"):
+#         await bot.send_document(
+#             chat_id=config["backup_db_channel"],
+#             document=open("data.db", 'rb'),
+#             caption="📁 بکاپ دیتابیس"
+#         )
 
 
 def main():
@@ -3458,7 +3458,7 @@ def main():
     application.add_handler(MessageHandler(filters.PHOTO, echo_photo))
     application.add_handler(CallbackQueryHandler(handle_confirmation))
     print("[BOT] running bot...")
-    job_queue.run_repeating(backup_db, interval=int(config["backup_time"]), first=0)
+    # job_queue.run_repeating(backup_db, interval=int(config["backup_time"]), first=0)
     application.run_polling()
 
 if __name__ == '__main__':
